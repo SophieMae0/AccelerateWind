@@ -3,7 +3,11 @@ import cfgrib
 import numpy as np
 import math as math
 import pickle
+import glob
+import memory_profiler
+import os
 from matplotlib import pyplot as plt
+from scipy.integrate import simps
 
 ro=1.225 #kg/m3 density of air
 cp = .35 #coefficient of performance
@@ -20,57 +24,14 @@ water_binary_strings = []
 for line in file:
     water_binary_strings.append(line.split())
 
-#threeeDaysWind is a 3d array grib file
-#1st dimension is hourly time
-#2nd dimension is latitude (-90 to 90) in quarter steps
-#3rd dimension is longitude (0 to 359.8) in quarter steps
-ds = xr.open_dataset('threeDaysWind.grib', engine='cfgrib')
-
-def clean_data(name_list_string):
-    """Input: a list of strings that each represent the name of variable
-    Output: a list of 3d arrays for each variable
-    Pulls out certain variable arrays from threeDaysWind"""
-    data_list = []
-    for name_index in range(len(name_list_string)):
-        data = ds.variables[name_list_string[name_index]].data
-
-        #reduces data set to one point per latitude
-        #721 values latitude
-        for i in range(180):
-             data = np.delete(data,slice(i+1,i+4),1)
-
-        #deleting points to the south of the USA
-        data = np.delete(data,slice(0,115),1)
-        #deleting points to the north of the USA
-        data = np.delete(data,slice(25,len(data[0,:,0])),1)
-
-        #reduces data set to one point per longitude
-        #1440 values longitude
-        for i in range(360):
-            data = np.delete(data,slice(i+1,i+4),2)
-
-        #deleting points to the west of the USA
-        data = np.delete(data,slice(0,235),2)
-        #deleting points to the east of the USA
-        data = np.delete(data,slice(59,len(data[0,0,:])),2)
-
-        #flagging coordinates over water
-        for i in range(len(data[0,:,0])): #for each latitude
-            for j in range(len(data[0,0,:])): #for each longitude
-                #corrects the difference between water_binary_strings
-                #and threeDaysWind coordinates
-                if water_binary_strings[-115-i][55+j] == '0':
-                    data[:,i,j] = np.zeros(len(data[:,i,j]))
-
-        data_list.append(data)
-    return data_list
-
-#wind speed in m/s at 10 meters up in the u vector diection
-#stored as a 3darray (time,latitude,longitude)
-#u10 = (clean_data(['u10'])[0])
-#wind speed in m/s at 10 meters up in the v vector diection
-#stored as a 3darray (time,latitude,longitude)
-#v10 = (clean_data(['v10'])[0])
+def get_data(file_name):
+    data = np.memmap('/media/sophie/3aad97f1-cb33-412d-b7f3-a82f0fc88a34/fiveMinutes10/%s' % (file_name),mode='r+',dtype='float32',shape=(315360,2))
+    speed = np.array(data[:,0])
+    direction = np.array(data[:,1])
+    direction = 2*math.pi*direction/360 #converting to radians
+    u_array = speed*np.sin(direction) #north/south
+    v_array = speed*np.cos(direction)
+    return u_array, v_array, direction
 
 def speed_function(u_array,v_array):
     """Input: wind vectors in the u and v directions in m/s
@@ -81,7 +42,7 @@ def speed_function(u_array,v_array):
 def power_function(speed_array):
     """Input: wind speed m/s
     Output: power in J/s"""
-    power_array= .5*ro*cp*area*(speed_array**3)
+    power_array= .5*ro*cp*area*(np.power(speed_array,3))
     return power_array
 
 ##EVERYTHING IS IN RADIANS
@@ -97,17 +58,17 @@ def velocity_function(u_array,v_array,angle,width):
     speed_array: speed of wind (m/s)"""
     speed_array = speed_function(u_array,v_array)
     #angle in radians that the wind is blowing towards
-    wind_angle = np.arctan2(u_array,v_array)
+    wind_angle = np.arctan2(u_array,v_array)+math.pi #making scale from 0 to 2pi
     #difference between wind direction and the angle the turbine is facing
     angle_difference = abs(wind_angle - angle)
     #no loss of speed if angle difference is within specified width
     angle_difference_width = angle_difference-width/2
+    angle_difference = np.where(angle_difference>(2*math.pi-width/2), 0, angle_difference)
     angle_difference = np.where(angle_difference_width>0, angle_difference, 0)
     #velocity of the wind that can be collected by the turbine
     velocity_array = np.cos(angle_difference)*speed_array
     #if the velcity is negative it is turned to zero
     velocity_array = np.where(velocity_array>0, velocity_array, 0)
-    #print('velocity',velocity_array)
     #power of the wind turbine
     power_array = power_function(velocity_array)
     #print('power',power_array)
@@ -138,23 +99,18 @@ def best_angle_energy(u_array,v_array,num_angles,width):
     #power at all angles for all coordinates
     power_all_angles = all_angle_power(u_array,v_array,num_angles,width)
     #converting to energy
-    energy_all_angles = power_all_angles*360
-    #total energy produced at each turbine at each angle
-    energy_all_angles = np.sum(energy_all_angles,1)
+    energy_all_angles = np.array(simps(power_all_angles))
     #determining which angle at each turbine produces the most energy
-    best_energy = np.max(energy_all_angles,0)
+    best_energy = np.max(energy_all_angles)
     #creating an array of best angle per coordinate
     angle_matrix = []
-    for i in range(len(energy_all_angles[0,:,0])): #latitude
-        angle_matrix.append([])
-        for j in range(len(energy_all_angles[0,0,:])): #longitude
-            for k in range(len(energy_all_angles[:,0,0])): #angles
-                #if the energy at this angle equals the maximum energy possible
-                if energy_all_angles[k,i,j] == best_energy[i,j]:
-                    #add this angle as the best angle for this coordinate
-                    angle_matrix[i].append(2*math.pi*(k/num_angles))
-                    break #has preference towards lower angles
-    return angle_matrix,best_energy
+    for i in range(len(energy_all_angles)):
+    #if the energy at this angle equals the maximum energy possible
+        if energy_all_angles[i] == best_energy:
+            #add this angle as the best angle for this coordinate
+            best_angle = 2*math.pi*(i/num_angles)
+            break #has preference towards lower angles
+    return best_angle,best_energy
 
 def coordinate_info(u_array,v_array,num_angles,width):
     """Inputs:
@@ -175,7 +131,7 @@ def all_generators_energy(u_array,v_array,num_angles,width,num_gen):
     angle: angle that the wind turbine collects wind from
     width: width in radians that wind can be collected with no loss
     num_gen: number of different sizes a generator could be
-             the sizs are equally distributed between 7 and 12
+             the sizes are equally distributed between 7 and 12
     Outputs:
     energy_list: an array of the percentage energy produced at each
                  location for each different generator size
@@ -186,13 +142,13 @@ def all_generators_energy(u_array,v_array,num_angles,width,num_gen):
     energy_percents = []
     for i in range(num_gen): #number of dif sized generators
         #max wind power that can be collected
-        max = power_function(7+(i/num_gen)*5) #max wind speeds between 7 and 12 m/s
+        max = power_function(6+(i/num_gen)*6) #max wind speeds between 7 and 12 m/s
         #power_difference will be negative if power is above max
         power_difference = max - power_array
         #if power_difference is negative power is set to max
         new_power = np.where(power_difference>=0, power_array, max)
         #convert to energy (J)
-        new_energy = new_power*360
+        new_energy = simps(new_power)
         #sum up energy over time
         new_energy_total = np.sum(new_energy,0)
         #percentage difference between original energy and energy with this generator
@@ -221,37 +177,35 @@ def generator_classification(u_array,v_array,num_angles,width,num_gen,best_perce
     percent_below = np.where(percent_all_gen>=best_percent,0,percent_all_gen)
     #determining which generator is closest and lower than best_percent
     second_best_percent = np.max(percent_below,0)
-    best_gen_list = [] #generator size
-    best_percent_list = [] #percentage of optimal energy produces with that generator
-    for i in range(len(percent_all_gen[0,:,0])): #latitude
-        best_gen_list.append([])
-        best_percent_list.append([])
-        for j in range(len(percent_all_gen[0,0,:])): #longitude
-            for k in range(num_gen): #generator size
-                above_best = True #true if all percentages are above best percentage
-                #if the current percentage equals the second best percentage for that coordinate
-                if percent_all_gen[k,i,j] == second_best_percent[i,j]:
-                    #checking for water
-                    if second_best_percent[i,j] == 0:
-                        #setting water coordinates to 0
-                        best_percent_list[i].append(0)
-                        best_gen_list[i].append(0)
-                    #if second best percent is the highest generator
-                    elif k == num_gen-1:
-                        best_percent_list[i].append(percent_all_gen[k,i,j])
-                        best_gen_list[i].append(7+((k)/num_gen)*5)
-                    #best gen is one greater than second best
-                    else:
-                        best_percent_list[i].append(percent_all_gen[k+1,i,j])
-                        best_gen_list[i].append(7+((k+1)/num_gen)*5)
-                    above_best = False
-                    break
-            #if all percentages are above best percent
-            if above_best:
-                #adding the lowest percentage
-                best_percent_list[i].append(percent_all_gen[0,i,j])
-                best_gen_list[i].append(7+((0)/num_gen)*6)
-    return np.array([best_gen_list,best_percent_list])
+    best_gen = [] #generator size
+    best_percent = [] #percentage of optimal energy produces with that generator
+
+    for i in range(num_gen): #generator size
+        above_best = True #true if all percentages are above best percentage
+        #if the current percentage equals the second best percentage for that coordinate
+        if percent_all_gen[i] == second_best_percent:
+            #checking for water
+            if second_best_percent == 0:
+                #setting water coordinates to 0
+                best_percent = 0
+                best_gen = 0
+            #if second best percent is the highest generator
+            elif i == num_gen-1:
+                best_percent = percent_all_gen[i]
+                best_gen = 6+((i)/num_gen)*6
+            #best gen is one greater than second best
+            else:
+                best_percent = percent_all_gen[i+1]
+                best_gen = 6+((i+1)/num_gen)*6
+            above_best = False
+            break
+        #if all percentages are above best percent
+        if above_best:
+            #adding the lowest percentage
+            best_percent = percent_all_gen[0]
+            #adding the smallest generator
+            best_gen = 6+((0)/num_gen)*6
+    return best_gen,best_percent
 
 def weibull_distribution(u_array,v_array,num_angles,width):
     speed_array = coordinate_info(u_array,v_array,num_angles,width)[1][2]
@@ -266,111 +220,199 @@ def weibull_distribution(u_array,v_array,num_angles,width):
             speed_dict_list.append(speed_dict)
 
 
+                ###CALCULATING VALUES FOR GRAPHS
 
-
-print(weibull_distribution(u10,v10,16,math.pi/2,))
-
-
-
-
-gen2 = generator_classification(u10,v10,16,math.pi/2,10,.8)
-
-testu = np.array([[[-1,2],[3,4]],[[-5,6],[7,8]]])
-testv = np.array([[[-9,10],[11,12]],[[-13,14],[15,16]]])
-
-gen = all_generators_energy(u10,v10,16,math.pi/2,5)
-
-info = coordinate_info(u10,v10,16,math.pi/2)
-
-
+os.chdir('/media/sophie/3aad97f1-cb33-412d-b7f3-a82f0fc88a34/fiveMinutes10')
+width = math.pi
 x = []
 y = []
-s = [] #angles
-s2 = [] #energy
-s3 = [] #percent captured by one gen
-s4 = []
-c = []
-c2 = []
-for i in range(59):
-    for j in range(25):
-            x.append(i)
-            y.append(j)
-            s.append(info[0][0][j][i])
-            s2.append(info[0][1][j][i]/(700*360))
-            s3.append(gen[1][j,i]*30)
-            s4.append(gen2[0][j][i]*3)
-            #WIND directions
-            if info[0][0][j][i] <= math.pi/4:
-                c.append('blue') #from the east
-            elif info[0][0][j][i] <= (math.pi/4)*3:
-                c.append('green') #from the north
-            elif info[0][0][j][i] <= (math.pi/4)*5:
-                c.append('yellow') #from the east
-            elif info[0][0][j][i] <= (math.pi/4)*7:
-                c.append('red') #from the south
-            else:
-                c.append('blue')
-            #GENERATOR size
-            if gen2[0][j,i] <= 8:
-                c2.append('blue')
-            elif gen2[0][j,i] <= 9:
-                c2.append('green')
-            elif gen2[0][j,i] <= 10:
-                c2.append('yellow')
-            elif gen2[0][j,i] <= 11:
-                c2.append('orange')
-            elif gen2[0][j,i] <= 12:
-                c2.append('red')
+gen_list = []
+energy_list = []
+angle_list = []
+all_angle_list = []
+power_list = []
+speed_list = []
+velocity_list = []
+i = 0
+for file in glob.glob("*"): #for each file in any folder
+    i += 1
+    print(i)
+    coord = eval(file)
+    u10,v10,direction = (get_data(file))
+    u10 = np.delete(u10,slice(103000,103500))
+    v10 = np.delete(v10,slice(103000,103500))
+    direction = np.delete(direction,slice(103000,103500))
+    gen = generator_classification(u10,v10,16,2*math.pi,10,.8)[0]
+    info = coordinate_info(u10,v10,16,2*math.pi)
+    energy = info[0][1] #divided by 3 so its annual
+    angle = info[0][0]
+    power = np.sum(info[1][0])/len(info[1][0])
+    speed = np.sum(info[1][2])/len(info[1][2])
+    velocity = np.sum(info[1][1])/len(info[1][1])
+    #print(angle)
+    wind_angle = np.arctan2(u10, v10) + math.pi
+    angle_difference = abs(wind_angle - angle)
+    #print(angle_difference)
+    angle_difference_width = angle_difference-width/2
+    angle_difference = np.where(angle_difference>(2*math.pi-width/2), 1, 0)
+    angle_difference = np.where(angle_difference_width>0, 1, 0)
+    all_angle = np.sum(angle_difference)/315360
+    gen_list.append(gen)
+    energy_list.append(energy)
+    angle_list.append(angle)
+    all_angle_list.append(all_angle)
+    power_list.append(power)
+    speed_list.append(speed)
+    velocity_list.append(velocity)
+    y.append(coord[0]-25)
+    x.append(coord[1]+125)
+
+os.chdir('/media/sophie/3aad97f1-cb33-412d-b7f3-a82f0fc88a34')
+pickle.dump(gen_list,open('gen_list.txt', 'wb'))
+pickle.dump(energy_list,open('energy_list.txt', 'wb'))
+pickle.dump(angle_list,open('angle_list.txt', 'wb'))
+pickle.dump(all_angle_list,open('all_angle_list.txt', 'wb'))
+pickle.dump(power_list,open('power_list.txt', 'wb'))
+pickle.dump(speed_list,open('speed_list.txt', 'wb'))
+pickle.dump(velocity_list,open('velocity_list.txt', 'wb'))
+pickle.dump(x,open('x.txt', 'wb'))
+pickle.dump(y,open('y.txt', 'wb'))
+
+os.chdir('/media/sophie/3aad97f1-cb33-412d-b7f3-a82f0fc88a34')
+gen_list = pickle.load(open('gen_list.txt', 'rb'))
+energy_list = np.array(pickle.load(open('energy_list.txt', 'rb')))
+angle_list = np.array(pickle.load(open('angle_list.txt', 'rb')))
+all_angle_list = np.array(pickle.load(open('all_angle_list.txt', 'rb')))
+power_list = np.array(pickle.load(open('power_list.txt', 'rb')))
+speed_list = np.array(pickle.load(open('speed_list.txt', 'rb')))
+velocity_list = np.array(pickle.load(open('velocity_list.txt', 'rb')))
+x = pickle.load(open('x.txt', 'rb'))
+y = pickle.load(open('y.txt', 'rb'))
+
+####GENERATOR SIZE
 
 #creates scatterplot
-plt.scatter(x,y,s = s4,label = 'dot',c = c2)
+plt.scatter(x,y,c = gen_list,label = 'Weather Site',cmap ='jet')
 #adds title
-plt.title('look at this graph', fontsize = 25)
+plt.title('Generator Size that Collects 80 Percent of Energy', fontsize = 25)
 #adds axis
-plt.xticks(fontsize = 20)
-plt.yticks(fontsize = 20)
-plt.xlabel('x', fontsize = 20)
-plt.ylabel('y', fontsize = 20)
+plt.xticks(ticks = [0,10,20,30,40,50,60], labels = [-125,-115,-105,-95,-85,-75,-65], fontsize = 15)
+plt.yticks(ticks = [0,5,10,15,20,25], labels = [25,30,35,40,45,50], fontsize = 15)
+plt.xlabel('Longitude', fontsize = 20)
+plt.ylabel('Latitude', fontsize = 20)
 #adds legend
-plt.legend(loc=3)
+plt.legend(loc=3, fontsize = 15)
+cbar = plt.colorbar(cmap = 'jet')
 
+cbar.ax.tick_params(labelsize=15)
+
+cbar.set_label(label = 'Generator Size (m/s)', fontsize = 20)
+plt.clim(6, 12);
 plt.show()
 
 
+            #####ENERGY
 
 #creates scatterplot
-plt.scatter(x,y,s = s2,label = 'dot',c = c)
+plt.scatter(x,y,c = np.log10(energy_list),label = 'Weather Site',cmap ='jet')
 #adds title
-plt.title('look at this graph', fontsize = 25)
+plt.title('Energy Production in a Year', fontsize = 25)
 #adds axis
-plt.xticks(fontsize = 20)
-plt.yticks(fontsize = 20)
-plt.xlabel('x', fontsize = 20)
-plt.ylabel('y', fontsize = 20)
+plt.xticks(ticks = [0,10,20,30,40,50,60], labels = [-125,-115,-105,-95,-85,-75,-65], fontsize = 15)
+plt.yticks(ticks = [0,5,10,15,20,25], labels = [25,30,35,40,45,50], fontsize = 15)
+plt.xlabel('Longitude', fontsize = 20)
+plt.ylabel('Latitude', fontsize = 20)
 #adds legend
-plt.legend(loc=3)
+plt.legend(loc=3, fontsize = 15)
+cbar = plt.colorbar(cmap = 'jet')
 
+cbar.ax.tick_params(labelsize=15)
+
+cbar.set_label(label = 'Log10 of Average Annual Energy (J)', fontsize = 20)
+plt.clim(6.5, 8.5);
 plt.show()
 
 
+            #####POWER
 
 #creates scatterplot
-plt.scatter(x,y,s = s3,label = 'dot',c = c)
+plt.scatter(x,y,c = power_list,label = 'Weather Site',cmap ='jet')
 #adds title
-plt.title('look at this graph', fontsize = 25)
+plt.title('Average Power', fontsize = 25)
 #adds axis
-plt.xticks(fontsize = 20)
-plt.yticks(fontsize = 20)
-plt.xlabel('x', fontsize = 20)
-plt.ylabel('y', fontsize = 20)
+plt.xticks(ticks = [0,10,20,30,40,50,60], labels = [-125,-115,-105,-95,-85,-75,-65], fontsize = 15)
+plt.yticks(ticks = [0,5,10,15,20,25], labels = [25,30,35,40,45,50], fontsize = 15)
+plt.xlabel('Longitude', fontsize = 20)
+plt.ylabel('Latitude', fontsize = 20)
 #adds legend
-plt.legend(loc=3)
+plt.legend(loc=3, fontsize = 15)
+cbar = plt.colorbar(cmap = 'jet')
 
+cbar.ax.tick_params(labelsize=15)
+
+cbar.set_label(label = 'Power (W)', fontsize = 20)
+plt.clim(10, 130);
 plt.show()
 
 
-#uncomment these lines the first time you read the data
-#pickle.dump(site_dict,open('site_dict.txt', 'wb'))
+            #####SPEED
 
-#uncomment this line when data has already been read
-#site_dict = pickle.load(open('word_total.txt', 'rb'))
+#creates scatterplot
+plt.scatter(x,y,c = speed_list,label = 'Weather Site',cmap ='jet')
+#adds title
+plt.title('Average Speed', fontsize = 25)
+#adds axis
+plt.xticks(ticks = [0,10,20,30,40,50,60], labels = [-125,-115,-105,-95,-85,-75,-65], fontsize = 15)
+plt.yticks(ticks = [0,5,10,15,20,25], labels = [25,30,35,40,45,50], fontsize = 15)
+plt.xlabel('Longitude', fontsize = 20)
+plt.ylabel('Latitude', fontsize = 20)
+#adds legend
+plt.legend(loc=3, fontsize = 15)
+cbar = plt.colorbar(cmap = 'jet')
+
+cbar.ax.tick_params(labelsize=15)
+
+cbar.set_label(label = 'Speed (m/s)', fontsize = 20)
+plt.clim(2, 7);
+plt.show()
+
+
+            #####VELOCITY
+
+#creates scatterplot
+plt.scatter(x,y,c = velocity_list,label = 'Weather Site',cmap ='jet')
+#adds title
+plt.title('Average Velocity', fontsize = 25)
+#adds axis
+plt.xticks(ticks = [0,10,20,30,40,50,60], labels = [-125,-115,-105,-95,-85,-75,-65], fontsize = 15)
+plt.yticks(ticks = [0,5,10,15,20,25], labels = [25,30,35,40,45,50], fontsize = 15)
+plt.xlabel('Longitude', fontsize = 20)
+plt.ylabel('Latitude', fontsize = 20)
+#adds legend
+plt.legend(loc=3, fontsize = 15)
+cbar = plt.colorbar(cmap = 'jet')
+
+cbar.ax.tick_params(labelsize=15)
+
+cbar.set_label(label = 'Velocity (m/s)', fontsize = 20)
+plt.clim(1, 6);
+plt.show()
+
+
+                ####ANGLES
+u_array = np.sin(angle_list) #north/south
+v_array = np.cos(angle_list) #east/west
+
+#creates scatterplot
+plt.quiver(x,y, u_array, v_array, scale = (1-all_angle_list)*100)
+#adds title
+plt.title('Wind Angle', fontsize = 25)
+#adds axis
+plt.xticks(ticks = [0,10,20,30,40,50,60], labels = [-125,-115,-105,-95,-85,-75,-65], fontsize = 15)
+plt.yticks(ticks = [0,5,10,15,20,25], labels = [25,30,35,40,45,50], fontsize = 15)
+plt.xlabel('Longitude', fontsize = 20)
+plt.ylabel('Latitude', fontsize = 20)
+#adds legend
+#plt.legend(loc=3, fontsize = 15)
+
+plt.show()
