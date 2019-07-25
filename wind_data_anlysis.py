@@ -50,8 +50,9 @@ def power_function(speed_array):
 def velocity_function(u_array,v_array,angle,width):
     """Inputs:
     u_array and v_array: wind vectors in the u and v directions in m/s
-    angle: angle that the wind turbine collects wind from
-    width: width in radians that wind can be collected with no loss
+    angle: central direction that the wind turbine collects wind from in radians
+    width: width in radians that wind can be collected with no loss, with angle
+           at the center
     Outputs:
     power_array: power of turbine (W) collecting wind from angle direction
     velocity_array: wind velocity (m/s) that is collected by the tubine
@@ -62,22 +63,23 @@ def velocity_function(u_array,v_array,angle,width):
     #difference between wind direction and the angle the turbine is facing
     angle_difference = abs(wind_angle - angle)
     #no loss of speed if angle difference is within specified width
+    #the lower the angle difference the more power the wind generates
     angle_difference_width = angle_difference-width/2
     angle_difference = np.where(angle_difference>(2*math.pi-width/2), 0, angle_difference)
-    angle_difference = np.where(angle_difference_width>0, angle_difference, 0)
+    angle_difference = np.where(angle_difference_width>0, 0, angle_difference)
     #velocity of the wind that can be collected by the turbine
     velocity_array = np.cos(angle_difference)*speed_array
     #if the velcity is negative it is turned to zero
     velocity_array = np.where(velocity_array>0, velocity_array, 0)
     #power of the wind turbine
     power_array = power_function(velocity_array)
-    #print('power',power_array)
     return [power_array,velocity_array,speed_array]
 
 def all_angle_power(u_array,v_array,num_angles,width):
     """Inputs:
     u_array and v_array: wind vectors in the u and v directions in m/s
-    angle: angle that the wind turbine collects wind from
+    num_angles: number of different angles the wind turbine could be facing
+                (equally distributed around a 2 pi radian circle)
     width: width in radians that wind can be collected with no loss
     Outputs: power of turbine facing num_angles different directions
     """
@@ -90,11 +92,12 @@ def all_angle_power(u_array,v_array,num_angles,width):
 def best_angle_energy(u_array,v_array,num_angles,width):
     """Inputs:
     u_array and v_array: wind vectors in the u and v directions in m/s
-    angle: angle that the wind turbine collects wind from
+    num_angles: number of different angles the wind turbine could be facing
+                (equally distributed around a 2 pi radian circle)
     width: width in radians that wind can be collected with no loss
     Outputs:
-    angle_matrix: angle with highest AEP (radians) for each coordinate
-    best_energy: amount of energy (J) produced at each best angle
+    best_angle: with highest AEP (radians) for each coordinate
+    best_energy: amount of energy (J) produced at the best angle
     """
     #power at all angles for all coordinates
     power_all_angles = all_angle_power(u_array,v_array,num_angles,width)
@@ -115,11 +118,13 @@ def best_angle_energy(u_array,v_array,num_angles,width):
 def coordinate_info(u_array,v_array,num_angles,width):
     """Inputs:
     u_array and v_array: wind vectors in the u and v directions in m/s
-    angle: angle that the wind turbine collects wind from
+    num_angles: number of different angles the wind turbine could be facing
+                (equally distributed around a 2 pi radian circle)
     width: width in radians that wind can be collected with no loss
     Outputs:
-    angle_matrix: angle with highest AEP (radians) for each coordinate
-    best_energy: amount of energy (J) produced at each best angle
+    angles: angle with highest AEP (radians) for each coordinate,
+            amount of energy (J) produced the best angle
+    wind_info: power, velocity and speed at the best angle
     """
     angles = best_angle_energy(u_array,v_array,num_angles,width)
     wind_info = velocity_function(u_array,v_array,angles[0],width)
@@ -128,13 +133,14 @@ def coordinate_info(u_array,v_array,num_angles,width):
 def all_generators_energy(u_array,v_array,num_angles,width,num_gen):
     """Inputs:
     u_array and v_array: wind vectors in the u and v directions in m/s
-    angle: angle that the wind turbine collects wind from
+    num_angles: number of different angles the wind turbine could be facing
+                (equally distributed around a 2 pi radian circle)
     width: width in radians that wind can be collected with no loss
     num_gen: number of different sizes a generator could be
              the sizes are equally distributed between 7 and 12
     Outputs:
-    energy_list: an array of the percentage energy produced at each
-                 location for each different generator size
+    energy_percents: an array of the percentage energy produced at each
+                     location for each different generator size
     """
     info = coordinate_info(u_array,v_array,num_angles,width)
     power_array = info[1][0] #power collected at optimal angle
@@ -150,9 +156,9 @@ def all_generators_energy(u_array,v_array,num_angles,width,num_gen):
         #convert to energy (J)
         new_energy = simps(new_power)
         #sum up energy over time
-        new_energy_total = np.sum(new_energy,0)
+        new_energy_total = np.sum(new_energy)
         #percentage difference between original energy and energy with this generator
-        energy_difference = np.where(original_energy == 0, 0,new_energy_total/original_energy)
+        energy_difference = new_energy_total/original_energy
         energy_percents.append(energy_difference)
     #percentage difference between original energy and energy with all diferent generators
     return np.array(energy_percents)
@@ -160,7 +166,8 @@ def all_generators_energy(u_array,v_array,num_angles,width,num_gen):
 def generator_classification(u_array,v_array,num_angles,width,num_gen,best_percent):
     """Inputs:
     u_array and v_array: wind vectors in the u and v directions in m/s
-    angle: angle that the wind turbine collects wind from
+    num_angles: number of different angles the wind turbine could be facing
+                (equally distributed around a 2 pi radian circle)
     width: width in radians that wind can be collected with no loss
     num_gen: number of different sizes a generator could be
              the sizs are equally distributed between 7 and 12
@@ -184,11 +191,6 @@ def generator_classification(u_array,v_array,num_angles,width,num_gen,best_perce
         above_best = True #true if all percentages are above best percentage
         #if the current percentage equals the second best percentage for that coordinate
         if percent_all_gen[i] == second_best_percent:
-            #checking for water
-            if second_best_percent == 0:
-                #setting water coordinates to 0
-                best_percent = 0
-                best_gen = 0
             #if second best percent is the highest generator
             elif i == num_gen-1:
                 best_percent = percent_all_gen[i]
@@ -207,76 +209,76 @@ def generator_classification(u_array,v_array,num_angles,width,num_gen,best_perce
             best_gen = 6+((0)/num_gen)*6
     return best_gen,best_percent
 
-def weibull_distribution(u_array,v_array,num_angles,width):
-    speed_array = coordinate_info(u_array,v_array,num_angles,width)[1][2]
-    speed_array = np.floor(speed_array)
+def flywheel(u_array,v_array,num_angles,width,num_gen,best_percent):
+    pass
 
-    speed_dict_list = []
-    for i in range(len(percent_all_gen[0,:,0])): #latitude
-        dict_list.append([])
-        for j in range(len(percent_all_gen[0,0,:])): #longitude
-            unique, counts = numpy.unique(speed_array[:,i,j], return_counts=True)
-            speed_dict = dict(zip(unique, counts))
-            speed_dict_list.append(speed_dict)
+
+
+
+
+
+
+
+
 
 
                 ###CALCULATING VALUES FOR GRAPHS
 
-os.chdir('/media/sophie/3aad97f1-cb33-412d-b7f3-a82f0fc88a34/fiveMinutes10')
-width = math.pi
-x = []
-y = []
-gen_list = []
-energy_list = []
-angle_list = []
-all_angle_list = []
-power_list = []
-speed_list = []
-velocity_list = []
-i = 0
-for file in glob.glob("*"): #for each file in any folder
-    i += 1
-    print(i)
-    coord = eval(file)
-    u10,v10,direction = (get_data(file))
-    u10 = np.delete(u10,slice(103000,103500))
-    v10 = np.delete(v10,slice(103000,103500))
-    direction = np.delete(direction,slice(103000,103500))
-    gen = generator_classification(u10,v10,16,2*math.pi,10,.8)[0]
-    info = coordinate_info(u10,v10,16,2*math.pi)
-    energy = info[0][1] #divided by 3 so its annual
-    angle = info[0][0]
-    power = np.sum(info[1][0])/len(info[1][0])
-    speed = np.sum(info[1][2])/len(info[1][2])
-    velocity = np.sum(info[1][1])/len(info[1][1])
-    #print(angle)
-    wind_angle = np.arctan2(u10, v10) + math.pi
-    angle_difference = abs(wind_angle - angle)
-    #print(angle_difference)
-    angle_difference_width = angle_difference-width/2
-    angle_difference = np.where(angle_difference>(2*math.pi-width/2), 1, 0)
-    angle_difference = np.where(angle_difference_width>0, 1, 0)
-    all_angle = np.sum(angle_difference)/315360
-    gen_list.append(gen)
-    energy_list.append(energy)
-    angle_list.append(angle)
-    all_angle_list.append(all_angle)
-    power_list.append(power)
-    speed_list.append(speed)
-    velocity_list.append(velocity)
-    y.append(coord[0]-25)
-    x.append(coord[1]+125)
-
-os.chdir('/media/sophie/3aad97f1-cb33-412d-b7f3-a82f0fc88a34')
-pickle.dump(gen_list,open('gen_list.txt', 'wb'))
-pickle.dump(energy_list,open('energy_list.txt', 'wb'))
-pickle.dump(angle_list,open('angle_list.txt', 'wb'))
-pickle.dump(all_angle_list,open('all_angle_list.txt', 'wb'))
-pickle.dump(power_list,open('power_list.txt', 'wb'))
-pickle.dump(speed_list,open('speed_list.txt', 'wb'))
-pickle.dump(velocity_list,open('velocity_list.txt', 'wb'))
-pickle.dump(x,open('x.txt', 'wb'))
-pickle.dump(y,open('y.txt', 'wb'))
+# os.chdir('/media/sophie/3aad97f1-cb33-412d-b7f3-a82f0fc88a34/fiveMinutes10')
+# width = math.pi
+# x = []
+# y = []
+# gen_list = []
+# energy_list = []
+# angle_list = []
+# all_angle_list = []
+# power_list = []
+# speed_list = []
+# velocity_list = []
+# i = 0
+# for file in glob.glob("*"): #for each file in any folder
+#     i += 1
+#     print(i)
+#     coord = eval(file)
+#     u10,v10,direction = (get_data(file))
+#     u10 = np.delete(u10,slice(103000,103500))
+#     v10 = np.delete(v10,slice(103000,103500))
+#     direction = np.delete(direction,slice(103000,103500))
+#     gen = generator_classification(u10,v10,16,math.pi,10,.8)[0]
+#     info = coordinate_info(u10,v10,16,math.pi)
+#     energy = info[0][1]/3 #divided by 3 so its annual
+#     angle = info[0][0]
+#     power = np.sum(info[1][0])/len(info[1][0])
+#     speed = np.sum(info[1][2])/len(info[1][2])
+#     velocity = np.sum(info[1][1])/len(info[1][1])
+#     #print(angle)
+#     wind_angle = np.arctan2(u10, v10) + math.pi
+#     angle_difference = abs(wind_angle - angle)
+#     #print(angle_difference)
+#     angle_difference_width = angle_difference-width/2
+#     angle_difference = np.where(angle_difference>(2*math.pi-width/2), 1, 0)
+#     angle_difference = np.where(angle_difference_width>0, 1, 0)
+#     all_angle = np.sum(angle_difference)/315360
+#     gen_list.append(gen)
+#     energy_list.append(energy)
+#     angle_list.append(angle)
+#     all_angle_list.append(all_angle)
+#     power_list.append(power)
+#     speed_list.append(speed)
+#     velocity_list.append(velocity)
+#     y.append(coord[0]-25)
+#     x.append(coord[1]+125)
+#
+# os.chdir('/media/sophie/3aad97f1-cb33-412d-b7f3-a82f0fc88a34')
+# pickle.dump(gen_list,open('gen_list.txt', 'wb'))
+# pickle.dump(energy_list,open('energy_list.txt', 'wb'))
+# pickle.dump(angle_list,open('angle_list.txt', 'wb'))
+# pickle.dump(all_angle_list,open('all_angle_list.txt', 'wb'))
+# pickle.dump(power_list,open('power_list.txt', 'wb'))
+# pickle.dump(speed_list,open('speed_list.txt', 'wb'))
+# pickle.dump(velocity_list,open('velocity_list.txt', 'wb'))
+# pickle.dump(x,open('x.txt', 'wb'))
+# pickle.dump(y,open('y.txt', 'wb'))
 
 os.chdir('/media/sophie/3aad97f1-cb33-412d-b7f3-a82f0fc88a34')
 gen_list = pickle.load(open('gen_list.txt', 'rb'))
@@ -329,7 +331,7 @@ cbar = plt.colorbar(cmap = 'jet')
 cbar.ax.tick_params(labelsize=15)
 
 cbar.set_label(label = 'Log10 of Average Annual Energy (J)', fontsize = 20)
-plt.clim(6.5, 8.5);
+plt.clim(6.5, 7.75);
 plt.show()
 
 
@@ -351,7 +353,7 @@ cbar = plt.colorbar(cmap = 'jet')
 cbar.ax.tick_params(labelsize=15)
 
 cbar.set_label(label = 'Power (W)', fontsize = 20)
-plt.clim(10, 130);
+plt.clim(20, 150);
 plt.show()
 
 
@@ -415,4 +417,4 @@ plt.ylabel('Latitude', fontsize = 20)
 #adds legend
 #plt.legend(loc=3, fontsize = 15)
 
-plt.show()
+#plt.show()
