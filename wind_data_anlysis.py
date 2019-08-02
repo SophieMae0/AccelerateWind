@@ -132,12 +132,8 @@ def coordinate_info(u_array,v_array,num_angles,width):
 
 def generator_energy(power_array,gen_size):
     """Inputs:
-    u_array and v_array: wind vectors in the u and v directions in m/s
-    power_array: power of wind turbine facing in the optimal direction ()
-    num_angles: number of different angles the wind turbine could be facing
-                (equally distributed around a 2 pi radian circle)
-    width: width in radians that wind can be collected with no loss
-    geb_size: generator size in m/s
+    power_array: power of wind turbine facing in the optimal direction
+    gen_size: generator size in m/s
     Outputs:
     energy_percents: an array of the percentage energy produced at each
                      location for each different generator size
@@ -156,12 +152,11 @@ def generator_energy(power_array,gen_size):
 
 def all_generators_energy(power_array,original_energy,num_gen):
     """Inputs:
-    u_array and v_array: wind vectors in the u and v directions in m/s
-    num_angles: number of different angles the wind turbine could be facing
-                (equally distributed around a 2 pi radian circle)
-    width: width in radians that wind can be collected with no loss
+    power_array: power of wind turbine facing in the optimal direction
+    original_energy: how much energy would be collected if the generator
+                     had no maximum
     num_gen: number of different sizes a generator could be
-             the sizes are equally distributed between 7 and 12
+             the sizes are equally distributed between 6 and 12 m/s
     Outputs:
     energy_percents: an array of the percentage energy produced at each
                      location for each different generator size
@@ -178,12 +173,11 @@ def all_generators_energy(power_array,original_energy,num_gen):
 
 def generator_classification(power_array,original_energy,num_gen,best_percent):
     """Inputs:
-    u_array and v_array: wind vectors in the u and v directions in m/s
-    num_angles: number of different angles the wind turbine could be facing
-                (equally distributed around a 2 pi radian circle)
-    width: width in radians that wind can be collected with no loss
+    power_array: power of wind turbine facing in the optimal direction
+    original_energy: how much energy would be collected if the generator
+                     had no maximum
     num_gen: number of different sizes a generator could be
-             the sizs are equally distributed between 7 and 12
+             the sizes are equally distributed between 6 and 12 m/s
     best_percent: the optimal percentage of energy for a genrator to collect
     Outputs:
     best_gen_list: an array of the generator sizes that collect the closest
@@ -223,38 +217,63 @@ def generator_classification(power_array,original_energy,num_gen,best_percent):
     return best_gen,best_percent
 
 def flywheel_energy(power_array,gen_size,fly_size):
+    """Inputs:
+    power_array: power of wind turbine facing in the optimal direction
+    gen_size: generator size in m/s
+    fly_size: fywheel size in watts
+    Outputs:
+    fly_energy: sum of energy that is stored in the flywheel (J)
+    gen_energy: sum of energy collected by the generator (J)
+    """
     #max wind power that can be collected in genertor and flywheel
     max_gen = power_function(gen_size)
     max_fly = fly_size
-    #power_difference will be negative if power is above max
+    #power_difference will be negative if power is below max
     power_dif = power_array - max_gen
 
-    fly_power_list = [0]
+    fly_power_list = [0] #setting orignal energy in flywheel
 
-    for i in range(len(power_dif)):
+    for i in range(len(power_dif)): #for each time step
+        #the power in the flywheel starts at the power from the end
+        #of the last time step
         fly_power = fly_power_list[i]
         #putting enegry back into the generator
         if power_dif[i] < 0: #if energy is going back into the generator
+            #adding the amount of power in the flyhweel into the generator
             power_array[i] += fly_power
+            #subtracting the amount of power in flywheel from the generator
             fly_power += power_dif[i]
-            if fly_power < 0:
-                fly_power = 0 #if flywheel energy is negative
+            if fly_power < 0: #if flywheel power is negative
+                fly_power = 0 #set flywheel power to zero
         #changing power in flyheel
         else:
+            #addingthe amount of power that exceeds the generator
+            #to the flywheel
             fly_power += power_dif[i]
             if fly_power > max_fly: #if flywheel energy is higher than max
-                fly_power = max_fly
+                fly_power = max_fly #set flywheel power to maximum
 
         fly_power_list.append(fly_power)
 
+    #chaning any power int he genrator that exceeds the maximum to the max
     np.where(power_array>max_gen,max_gen,power_array)
 
+    #converting to enery (J)
     fly_energy = simps(fly_power_list)*60
     gen_energy = simps(power_array)*60
     return(fly_energy,gen_energy)
 
 
 def all_flywheel_gen_energy(power_array,num_gen,num_fly):
+    """Inputs:
+    power_array: power of wind turbine facing in the optimal direction
+    num_gen: number of different sizes a generator could be
+             the sizes are equally distributed between 7 and 12
+    num_fly: number of different sizes a flywheel could be
+    Outputs:
+    gen_energy_array: array of the sums of energy collected by every
+                      generator and flywheel combination
+    """
     max_fly = power_function(12)
     gen_energy_array = []
     for i in range(num_gen):
@@ -263,7 +282,7 @@ def all_flywheel_gen_energy(power_array,num_gen,num_fly):
         for j in range(num_fly):
             print('j is' , j)
             #num gen is distributed between 6 and 12
-            #num fly is distributed between
+            #num fly is distributed between the power equivilents of zero and 6 m/s
             fly_energy, gen_energy = flywheel_energy(power_array,6+(i/(num_gen-1))*6,((j+1)/(num_fly)*max_fly))
             gen_energy_array[i].append(gen_energy)
     return(np.array(gen_energy_array))
