@@ -296,12 +296,193 @@ def cost_curve(energy,gen_size,flywheel_size):
 def classification():
     pass
 
+def dump_pickles(name,width,num_angles,best_percent,num_fly,num_gen,gen_size,fly_size):
+    os.chdir('/media/sophie/Samples - 1TB/AccelerateWind/fiveMinutes')
+    data_list = [x,y,all_flywheel_list,flywheel_list,flywheel_gen_list,flywheel_gen_plain_list,gen_list,energy_list,angle_list,power_list,speed_list,velocity_list]
+    for data in data_list:
+        data = [] #initilized all of the lists
+    i = 0
+    for file in glob.glob("*"): #for each file in any folder
+        i += 1
+        print(i)
+        print(file)
+        coord = eval(file)
+        u10,v10,direction = (get_data(file))
+        u10 = np.delete(u10,slice(103000,103500))
+        v10 = np.delete(v10,slice(103000,103500))
+        direction = np.delete(direction,slice(103000,103500))
+        info = coordinate_info(u10,v10,num_angles,width)
+        flywheel,flywheel_gen = flywheel_energy(info[1][0],gen_size,fly_size)
+        flywheel = flywheel/3 #divided by 3 to make it annual
+        flywheel_gen = flywheel_gen/3 #divided by 3 to make it annual
+        flywheel_gen_plain = generator_energy(info[1][0],gen_size)/3
+        all_flywheel = all_flywheel_gen_energy(info[1][0],num_gen,num_fly)
+        energy = info[0][1]/3 #divided by 3 so its annual
+        angle = info[0][0]
+        power = np.sum(info[1][0])/len(info[1][0])
+        speed = np.sum(info[1][2])/len(info[1][2])
+        velocity = np.sum(info[1][1])/len(info[1][1])
+        gen = generator_classification(info[1][0],info[0][1],num_gen,best_percent)[0]
+
+        gen_list.append(gen)
+        energy_list.append(energy)
+        angle_list.append(angle)
+        power_list.append(power)
+        speed_list.append(speed)
+        velocity_list.append(velocity)
+        flywheel_list.append(flywheel)
+        flywheel_gen_list.append(flywheel_gen)
+        flywheel_gen_plain_list.append(flywheel_gen_plain)
+        all_flywheel_list.append(all_flywheel)
+        y.append(coord[0]-25)
+        x.append(coord[1]+125)
+
+    os.chdir('/media/sophie/Samples - 1TB/AccelerateWind/data')
+    pickle.dump(x,open('x.txt', 'wb'))
+    pickle.dump(y,open('y.txt', 'wb'))
+    data_list = [all_flywheel_list,flywheel_list,flywheel_gen_list,flywheel_gen_plain_list,gen_list,energy_list,angle_list,power_list,speed_list,velocity_list]
+    for data in data_list:
+        pickle.dump(data,open(str(data)+(str(name))+'.txt', 'wb'))
+
+def load_pickles(name):
+    os.chdir('/media/sophie/Samples - 1TB/AccelerateWind/data')
+    x = pickle.load(open('x.txt', 'rb'))
+    y = pickle.load(open('y.txt', 'rb'))
+    data_list = [all_flywheel_list,flywheel_list,flywheel_gen_list,flywheel_gen_plain_list,gen_list,energy_list,angle_list,power_list,speed_list,velocity_list]
+    for data in data_list:
+        flywheel_list = pickle.load(open(str(data)+(str(name))+'.txt', 'rb'))
+
+def load_graphs(name,flywheel = True,generator = True,energy = True,power = True,speed = True,velocity = True,speed_proportion = True,angle = True):
+    load_pickles(name)
+    if flywheel:
+        flywheel_graph(flywheel_list, flywheel_gen_list, flywheel_gen_plain_list))
+    if generator:
+        generator_graph(gen_list)
+    if energy:
+        energy_graph(energy_list)
+    if power:
+        power_graph(power_list)
+    if speed:
+        speed_graph(speed_list)
+    if velocity:
+        velocity_graph(velocity_list)
+    if speed_proportion:
+        speed_proportion_graph(velocity_list, speed_list)
+    if angle:
+        angle_graph(angle_list)
+
+def add_axis():
+    plt.xticks(ticks = [0,10,20,30,40,50,60], labels = [-125,-115,-105,-95,-85,-75,-65], fontsize = 15) #adds x axis
+    plt.yticks(ticks = [0,5,10,15,20,25], labels = [25,30,35,40,45,50], fontsize = 15) #adds y axis
+
+def add_all(title):
+    add_axis()
+    plt.xlabel('Longitude', fontsize = 20) #labels x axis as longitude
+    plt.ylabel('Latitude', fontsize = 20) #labels y axis as latitude
+    plt.title(title, fontsize = 25)
+
+def flywheel_graph(flywheel_list, flywheel_gen_list, flywheel_gen_plain_list):
+    plt.figure(figsize = (5,20)) #sets size of the graph
+    #FLYWHEEL ENERGY
+    plt.subplot(3,1,1) #creates a plot with 3 subplot
+    plt.scatter(x,y,c = np.log10(flywheel_list),label = 'Weather Site',cmap ='jet') #creates scatterplot
+    plt.title('Annual Energy Stored in Flywheel', fontsize = 10) #adds title
+    add_axis() #adds x and y axis
+    cbar = plt.colorbar(cmap = 'jet') #creates color bar
+    cbar.ax.tick_params(labelsize=15)
+    plt.clim(7.5, 9.5); #sets color bar value limits
+
+    #GENERATOR WITH FLYHWEEL ENERGY
+    plt.subplot(3,1,2) #switches to the second subplot
+    plt.scatter(x,y,c = np.log10(flywheel_gen_list),label = 'Weather Site',cmap ='jet') #creates scatterplot
+    plt.title('Annual Energy Stored in Generator with Flywheel', fontsize = 10) #adds title
+    add_axis() #adds x and y axis
+    plt.ylabel('Latitude', fontsize = 20) #labels y axis as latitude
+    cbar = plt.colorbar(cmap = 'jet') #creates color bar
+    cbar.ax.tick_params(labelsize=15)
+    cbar.set_label(label = 'Log10 of Average Annual Energy (J)', fontsize = 20) #adds color bar label
+    plt.clim(7.5, 9.5); #sets color bar value limits
+
+    #GENERATOR WITHOUT FLYWHEEL ENERGY
+    plt.subplot(3,1,3) #switches to the third subplot
+    plt.scatter(x,y,c = np.log10(flywheel_gen_plain_list),label = 'Weather Site',cmap ='jet') #creates scatterplot
+    plt.title('Annual Energy Stored in Generator withput Flywheel', fontsize = 10) #adds title
+    add_axis() #adds x and y axis
+    plt.xlabel('Longitude', fontsize = 20) #labels x axis as longitude
+    cbar = plt.colorbar(cmap = 'jet') #creates color bar
+    cbar.ax.tick_params(labelsize=15)
+    plt.clim(7.5, 9.5); #sets color bar value limits
+    plt.show() #displays graph
+
+def generator_graph(gen_list):
+    plt.scatter(x,y,c = gen_list,label = 'Weather Site',cmap ='jet') #creates scatterplot
+    add_all('Generator Size that Collects 80 Percent of Energy')
+    plt.legend(loc=3, fontsize = 15) #adds legend
+    cbar = plt.colorbar(cmap = 'jet') #creates color bar
+    cbar.ax.tick_params(labelsize=15)
+    cbar.set_label(label = 'Generator Size (m/s)', fontsize = 20) #adds color bar label
+    plt.clim(6, 12); #sets color bar value limits
+    plt.show() #displays graph
+
+def energy_graph(energy_list):
+    plt.scatter(x,y,c = np.log10(energy_list),label = 'Weather Site',cmap ='jet') #creates scatterplot
+    add_all('Annual Energy')
+    plt.legend(loc=3, fontsize = 15) #adds legend
+    cbar = plt.colorbar(cmap = 'jet') #creates color bar
+    cbar.ax.tick_params(labelsize=15)
+    cbar.set_label(label = 'Log10 of Average Annual Energy (J)', fontsize = 20) #adds color bar label
+    plt.clim(8, 9.5); #sets color bar value limits
+    plt.show() #displays graph
+
+def power_graph(power_list):
+    plt.scatter(x,y,c = power_list,label = 'Weather Site',cmap ='jet') #creates scatterplot
+    add_all('Average Power')
+    plt.legend(loc=3, fontsize = 15) #adds legend
+    cbar = plt.colorbar(cmap = 'jet') #creates color bar
+    cbar.ax.tick_params(labelsize=15)
+    cbar.set_label(label = 'Power (W)', fontsize = 20) #adds color bar label
+    plt.clim(20, 150); #sets color bar value limits
+    plt.show() #displays graph
+
+def speed_graph(speed_list):
+    plt.scatter(x,y,c = speed_list,label = 'Weather Site',cmap ='jet') #creates scatterplot
+    add_all('Average Wind Speed')
+    plt.legend(loc=3, fontsize = 15) #adds legend
+    cbar = plt.colorbar(cmap = 'jet') #creates color bar
+    cbar.ax.tick_params(labelsize=15)
+    cbar.set_label(label = 'Speed (m/s)', fontsize = 20) #adds color bar label
+    plt.clim(1, 7); #sets color bar value limits
+    plt.show() #displays graph
+
+def velocity_graph(velocity_list):
+    plt.scatter(x,y,c = velocity_list,label = 'Weather Site',cmap ='jet') #creates scatterplot
+    add_all('Average WInd Velocity')
+    plt.legend(loc=3, fontsize = 15) #adds legend
+    cbar = plt.colorbar(cmap = 'jet') #creates color bar
+    cbar.ax.tick_params(labelsize=15)
+    cbar.set_label(label = 'Velocity (m/s)', fontsize = 20) #adds color bar label
+    plt.clim(1, 7); #sets color bar value limits
+    plt.show() #displays graph
+
+def speed_proportion_graph(velocity_list, speed_list):
+    plt.scatter(x,y,c = velocity_list/speed_list,label = 'Weather Site',cmap ='jet') #creates scatterplot
+    add_all('Average Velocity/Average Speed')
+    plt.legend(loc=3, fontsize = 15) #adds legend
+    cbar = plt.colorbar(cmap = 'jet') #creates color ba
+    cbar.ax.tick_params(labelsize=15)
+    plt.clim(.5,1); #sets color bar value limits
+    plt.show() #displays graph
+
+def angle_graph(angle_list):
+    u_array = np.sin(angle_list) #north/south
+    v_array = np.cos(angle_list) #east/west
+    plt.quiver(x,y, u_array, v_array) #creates scatterplot
+    add_all('Wind Angle')
+    plt.show() #displays graph
 
 
-
-                ###CALCULATING VALUES FOR GRAPHS
-#
-# os.chdir('/media/sophie/3aad97f1-cb33-412d-b7f3-a82f0fc88a34/fiveMinutes10')
+                ##CALCULATING VALUES FOR GRAPHS
+# os.chdir('/media/sophie/Samples - 1TB/AccelerateWind/fiveMinutes')
 # width = math.pi
 # x = []
 # y = []
@@ -327,43 +508,43 @@ def classification():
 #     v10 = np.delete(v10,slice(103000,103500))
 #     direction = np.delete(direction,slice(103000,103500))
 #     info = coordinate_info(u10,v10,16,math.pi)
-    # #
-    # flywheel,flywheel_gen = flywheel_energy(info[1][0],6,6)
-    # flywheel = flywheel/3 #divided by 3 to make it annual
-    # flywheel_gen = flywheel_gen/3 #divided by 3 to make it annual
-    # flywheel_gen_plain = generator_energy(info[1][0],6)/3
-
-    # all_flywheel = all_flywheel_gen_energy(info[1][0],6,6)
-# #
-# #     # energy = info[0][1]/3 #divided by 3 so its annual
-# #     # angle = info[0][0]
-# #     # power = np.sum(info[1][0])/len(info[1][0])
-# #     # speed = np.sum(info[1][2])/len(info[1][2])
-# #     #
-# #     # velocity = np.sum(info[1][1])/len(info[1][1])
-# #     #
-# #     # gen = generator_classification(info[1][0],info[0][1],2,.8)[0]
-# #
-# #
-# #     # wind_angle = np.arctan2(u10, v10) + math.pi
-# #     # angle_difference = abs(wind_angle - angle)
-# #     # angle_difference_width = angle_difference-width/2
-# #     # angle_difference = np.where(angle_difference>(2*math.pi-width/2), 1, 0)
-# #     # angle_difference = np.where(angle_difference_width>0, 1, 0)
-# #     # all_angle = np.sum(angle_difference)/315360
-# #     # gen_list.append(gen)
-# #     # energy_list.append(energy)
-# #     # angle_list.append(angle)
-# #     # all_angle_list.append(all_angle)
-# #     # power_list.append(power)
-# #     # speed_list.append(speed)
-# #     # velocity_list.append(velocity)
-    # flywheel_list.append(flywheel)
-    # flywheel_gen_list.append(flywheel_gen)
-    # flywheel_gen_plain_list.append(flywheel_gen_plain)
-    # all_flywheel_list.append(all_flywheel)
-#     # y.append(coord[0]-25)
-#     # x.append(coord[1]+125)
+#     #
+#     flywheel,flywheel_gen = flywheel_energy(info[1][0],6,6)
+#     flywheel = flywheel/3 #divided by 3 to make it annual
+#     flywheel_gen = flywheel_gen/3 #divided by 3 to make it annual
+#     flywheel_gen_plain = generator_energy(info[1][0],6)/3
+#
+#     all_flywheel = all_flywheel_gen_energy(info[1][0],6,6)
+#
+#     energy = info[0][1]/3 #divided by 3 so its annual
+#     angle = info[0][0]
+#     power = np.sum(info[1][0])/len(info[1][0])
+#     speed = np.sum(info[1][2])/len(info[1][2])
+#
+#     velocity = np.sum(info[1][1])/len(info[1][1])
+#
+#     gen = generator_classification(info[1][0],info[0][1],2,.8)[0]
+#
+#
+#     wind_angle = np.arctan2(u10, v10) + math.pi
+#     angle_difference = abs(wind_angle - angle)
+#     angle_difference_width = angle_difference-width/2
+#     angle_difference = np.where(angle_difference>(2*math.pi-width/2), 1, 0)
+#     angle_difference = np.where(angle_difference_width>0, 1, 0)
+#     all_angle = np.sum(angle_difference)/315360
+#     gen_list.append(gen)
+#     energy_list.append(energy)
+#     angle_list.append(angle)
+#     all_angle_list.append(all_angle)
+#     power_list.append(power)
+#     speed_list.append(speed)
+#     velocity_list.append(velocity)
+#     flywheel_list.append(flywheel)
+#     flywheel_gen_list.append(flywheel_gen)
+#     flywheel_gen_plain_list.append(flywheel_gen_plain)
+#     all_flywheel_list.append(all_flywheel)
+#     y.append(coord[0]-25)
+#     x.append(coord[1]+125)
 #
 # os.chdir('/media/sophie/3aad97f1-cb33-412d-b7f3-a82f0fc88a34')
 # pickle.dump(all_flywheel_list,open('all_flywheel_list6p.txt', 'wb'))
@@ -380,220 +561,220 @@ def classification():
 # pickle.dump(x,open('x.txt', 'wb'))
 # pickle.dump(y,open('y.txt', 'wb'))
 #
-os.chdir('/media/sophie/3aad97f1-cb33-412d-b7f3-a82f0fc88a34')
-flywheel_list = pickle.load(open('flywheel_list.txt', 'rb'))
-flywheel_gen_list = pickle.load(open('flywheel_gen_list.txt', 'rb'))
-flywheel_gen_plain_list = pickle.load(open('flywheel_gen_plain_list.txt', 'rb'))
-gen_list = pickle.load(open('gen_list180.txt', 'rb'))
-energy_list = np.array(pickle.load(open('energy_list180.txt', 'rb')))
-angle_list = np.array(pickle.load(open('angle_list180.txt', 'rb')))
-all_angle_list = np.array(pickle.load(open('all_angle_list180.txt', 'rb')))
-power_list = np.array(pickle.load(open('power_list180.txt', 'rb')))
-speed_list = np.array(pickle.load(open('speed_list180.txt', 'rb')))
-velocity_list = np.array(pickle.load(open('velocity_list180.txt', 'rb')))
-x = pickle.load(open('x.txt', 'rb'))
-y = pickle.load(open('y.txt', 'rb'))
-
-
-
-##FLYWHEEL
-plt.figure(figsize = (5,20))
-plt.subplot(3,1,1)
-#creates scatterplot
-plt.scatter(x,y,c = np.log10(flywheel_list),label = 'Weather Site',cmap ='jet')
-#adds title
-plt.title('Annual Energy ', fontsize = 15)
-#adds axis
-plt.xticks(ticks = [0,10,20,30,40,50,60], labels = [-125,-115,-105,-95,-85,-75,-65], fontsize = 15)
-plt.yticks(ticks = [0,5,10,15,20,25], labels = [25,30,35,40,45,50], fontsize = 15)
-
-cbar = plt.colorbar(cmap = 'jet')
-
-cbar.ax.tick_params(labelsize=15)
-
-plt.clim(7.5, 9.5);
-
-plt.subplot(3,1,2)
-plt.scatter(x,y,c = np.log10(flywheel_gen_list),label = 'Weather Site',cmap ='jet')
-
-
-#adds axis
-plt.xticks(ticks = [0,10,20,30,40,50,60], labels = [-125,-115,-105,-95,-85,-75,-65], fontsize = 15)
-plt.yticks(ticks = [0,5,10,15,20,25], labels = [25,30,35,40,45,50], fontsize = 15)
-
-plt.ylabel('Latitude', fontsize = 20)
-
-cbar = plt.colorbar(cmap = 'jet')
-
-cbar.ax.tick_params(labelsize=15)
-
-cbar.set_label(label = 'Log10 of Average Annual Energy (J)', fontsize = 20)
-plt.clim(7.5, 9.5);
-
-plt.subplot(3,1,3)
-plt.scatter(x,y,c = np.log10(flywheel_gen_plain_list),label = 'Weather Site',cmap ='jet')
-
-#adds axis
-plt.xticks(ticks = [0,10,20,30,40,50,60], labels = [-125,-115,-105,-95,-85,-75,-65], fontsize = 15)
-plt.yticks(ticks = [0,5,10,15,20,25], labels = [25,30,35,40,45,50], fontsize = 15)
-plt.xlabel('Longitude', fontsize = 20)
-
-
-cbar = plt.colorbar(cmap = 'jet')
-
-cbar.ax.tick_params(labelsize=15)
-
-plt.clim(7.5, 9.5);
-plt.show()
-
-
-
-
-####GENERATOR SIZE
-
-#creates scatterplot
-plt.scatter(x,y,c = gen_list,label = 'Weather Site',cmap ='jet')
-#adds title
-plt.title('Generator Size that Collects 80 Percent of Energy', fontsize = 25)
-#adds axis
-plt.xticks(ticks = [0,10,20,30,40,50,60], labels = [-125,-115,-105,-95,-85,-75,-65], fontsize = 15)
-plt.yticks(ticks = [0,5,10,15,20,25], labels = [25,30,35,40,45,50], fontsize = 15)
-plt.xlabel('Longitude', fontsize = 20)
-plt.ylabel('Latitude', fontsize = 20)
-#adds legend
-plt.legend(loc=3, fontsize = 15)
-cbar = plt.colorbar(cmap = 'jet')
-
-cbar.ax.tick_params(labelsize=15)
-
-cbar.set_label(label = 'Generator Size (m/s)', fontsize = 20)
-plt.clim(6, 12);
-plt.show()
-
-
-            #####ENERGY
-
-#creates scatterplot
-plt.scatter(x,y,c = np.log10(energy_list),label = 'Weather Site',cmap ='jet')
-#adds title
-plt.title('Annual Energy', fontsize = 25)
-#adds axis
-plt.xticks(ticks = [0,10,20,30,40,50,60], labels = [-125,-115,-105,-95,-85,-75,-65], fontsize = 15)
-plt.yticks(ticks = [0,5,10,15,20,25], labels = [25,30,35,40,45,50], fontsize = 15)
-plt.xlabel('Longitude', fontsize = 20)
-plt.ylabel('Latitude', fontsize = 20)
-#adds legend
-plt.legend(loc=3, fontsize = 15)
-cbar = plt.colorbar(cmap = 'jet')
-
-cbar.ax.tick_params(labelsize=15)
-
-cbar.set_label(label = 'Log10 of Average Annual Energy (J)', fontsize = 20)
-plt.clim(8, 9.5);
-plt.show()
-
-
-            #####POWER
-
-#creates scatterplot
-plt.scatter(x,y,c = power_list,label = 'Weather Site',cmap ='jet')
-#adds title
-plt.title('Average Power', fontsize = 25)
-#adds axis
-plt.xticks(ticks = [0,10,20,30,40,50,60], labels = [-125,-115,-105,-95,-85,-75,-65], fontsize = 15)
-plt.yticks(ticks = [0,5,10,15,20,25], labels = [25,30,35,40,45,50], fontsize = 15)
-plt.xlabel('Longitude', fontsize = 20)
-plt.ylabel('Latitude', fontsize = 20)
-#adds legend
-plt.legend(loc=3, fontsize = 15)
-cbar = plt.colorbar(cmap = 'jet')
-
-cbar.ax.tick_params(labelsize=15)
-
-cbar.set_label(label = 'Power (W)', fontsize = 20)
-plt.clim(20, 150);
-plt.show()
-
-
-            #####SPEED
-
-#creates scatterplot
-plt.scatter(x,y,c = speed_list,label = 'Weather Site',cmap ='jet')
-#adds title
-plt.title('Average Speed', fontsize = 25)
-#adds axis
-plt.xticks(ticks = [0,10,20,30,40,50,60], labels = [-125,-115,-105,-95,-85,-75,-65], fontsize = 15)
-plt.yticks(ticks = [0,5,10,15,20,25], labels = [25,30,35,40,45,50], fontsize = 15)
-plt.xlabel('Longitude', fontsize = 20)
-plt.ylabel('Latitude', fontsize = 20)
-#adds legend
-plt.legend(loc=3, fontsize = 15)
-cbar = plt.colorbar(cmap = 'jet')
-
-cbar.ax.tick_params(labelsize=15)
-
-cbar.set_label(label = 'Speed (m/s)', fontsize = 20)
-plt.clim(1, 7);
-plt.show()
-
-
-            #####VELOCITY
-
-#creates scatterplot
-plt.scatter(x,y,c = velocity_list,label = 'Weather Site',cmap ='jet')
-#adds title
-plt.title('Average Velocity', fontsize = 25)
-#adds axis
-plt.xticks(ticks = [0,10,20,30,40,50,60], labels = [-125,-115,-105,-95,-85,-75,-65], fontsize = 15)
-plt.yticks(ticks = [0,5,10,15,20,25], labels = [25,30,35,40,45,50], fontsize = 15)
-plt.xlabel('Longitude', fontsize = 20)
-plt.ylabel('Latitude', fontsize = 20)
-#adds legend
-plt.legend(loc=3, fontsize = 15)
-cbar = plt.colorbar(cmap = 'jet')
-
-cbar.ax.tick_params(labelsize=15)
-
-cbar.set_label(label = 'Velocity (m/s)', fontsize = 20)
-plt.clim(1, 7);
-plt.show()
-
-
-                ####ANGLES
-u_array = np.sin(angle_list) #north/south
-v_array = np.cos(angle_list) #east/west
-
-#creates scatterplot
-plt.quiver(x,y, u_array, v_array, scale = (1-all_angle_list)*100)
-#adds title
-plt.title('Wind Angle', fontsize = 25)
-#adds axis
-plt.xticks(ticks = [0,10,20,30,40,50,60], labels = [-125,-115,-105,-95,-85,-75,-65], fontsize = 15)
-plt.yticks(ticks = [0,5,10,15,20,25], labels = [25,30,35,40,45,50], fontsize = 15)
-plt.xlabel('Longitude', fontsize = 20)
-plt.ylabel('Latitude', fontsize = 20)
-#adds legend
-#plt.legend(loc=3, fontsize = 15)
-
-plt.show()
-
-
-            ###VELOCITY/SPEED
-#creates scatterplot
-plt.scatter(x,y,c = velocity_list/speed_list,label = 'Weather Site',cmap ='jet')
-#adds title
-plt.title('Velocity/Speed', fontsize = 25)
-#adds axis
-plt.xticks(ticks = [0,10,20,30,40,50,60], labels = [-125,-115,-105,-95,-85,-75,-65], fontsize = 15)
-plt.yticks(ticks = [0,5,10,15,20,25], labels = [25,30,35,40,45,50], fontsize = 15)
-plt.xlabel('Longitude', fontsize = 20)
-plt.ylabel('Latitude', fontsize = 20)
-#adds legend
-plt.legend(loc=3, fontsize = 15)
-cbar = plt.colorbar(cmap = 'jet')
-
-cbar.ax.tick_params(labelsize=15)
-
-#cbar.set_label( fontsize = 20)
-plt.clim(.5,1);
-plt.show()
+# os.chdir('/media/sophie/3aad97f1-cb33-412d-b7f3-a82f0fc88a34')
+# flywheel_list = pickle.load(open('flywheel_list.txt', 'rb'))
+# flywheel_gen_list = pickle.load(open('flywheel_gen_list.txt', 'rb'))
+# flywheel_gen_plain_list = pickle.load(open('flywheel_gen_plain_list.txt', 'rb'))
+# gen_list = pickle.load(open('gen_list180.txt', 'rb'))
+# energy_list = np.array(pickle.load(open('energy_list180.txt', 'rb')))
+# angle_list = np.array(pickle.load(open('angle_list180.txt', 'rb')))
+# all_angle_list = np.array(pickle.load(open('all_angle_list180.txt', 'rb')))
+# power_list = np.array(pickle.load(open('power_list180.txt', 'rb')))
+# speed_list = np.array(pickle.load(open('speed_list180.txt', 'rb')))
+# velocity_list = np.array(pickle.load(open('velocity_list180.txt', 'rb')))
+# x = pickle.load(open('x.txt', 'rb'))
+# y = pickle.load(open('y.txt', 'rb'))
+#
+#
+#
+# ##FLYWHEEL
+# plt.figure(figsize = (5,20))
+# plt.subplot(3,1,1)
+# #creates scatterplot
+# plt.scatter(x,y,c = np.log10(flywheel_list),label = 'Weather Site',cmap ='jet')
+# #adds title
+# plt.title('Annual Energy ', fontsize = 15)
+# #adds axis
+# plt.xticks(ticks = [0,10,20,30,40,50,60], labels = [-125,-115,-105,-95,-85,-75,-65], fontsize = 15)
+# plt.yticks(ticks = [0,5,10,15,20,25], labels = [25,30,35,40,45,50], fontsize = 15)
+#
+# cbar = plt.colorbar(cmap = 'jet')
+#
+# cbar.ax.tick_params(labelsize=15)
+#
+# plt.clim(7.5, 9.5);
+#
+# plt.subplot(3,1,2)
+# plt.scatter(x,y,c = np.log10(flywheel_gen_list),label = 'Weather Site',cmap ='jet')
+#
+#
+# #adds axis
+# plt.xticks(ticks = [0,10,20,30,40,50,60], labels = [-125,-115,-105,-95,-85,-75,-65], fontsize = 15)
+# plt.yticks(ticks = [0,5,10,15,20,25], labels = [25,30,35,40,45,50], fontsize = 15)
+#
+# plt.ylabel('Latitude', fontsize = 20)
+#
+# cbar = plt.colorbar(cmap = 'jet')
+#
+# cbar.ax.tick_params(labelsize=15)
+#
+# cbar.set_label(label = 'Log10 of Average Annual Energy (J)', fontsize = 20)
+# plt.clim(7.5, 9.5);
+#
+# plt.subplot(3,1,3)
+# plt.scatter(x,y,c = np.log10(flywheel_gen_plain_list),label = 'Weather Site',cmap ='jet')
+#
+# #adds axis
+# plt.xticks(ticks = [0,10,20,30,40,50,60], labels = [-125,-115,-105,-95,-85,-75,-65], fontsize = 15)
+# plt.yticks(ticks = [0,5,10,15,20,25], labels = [25,30,35,40,45,50], fontsize = 15)
+# plt.xlabel('Longitude', fontsize = 20)
+#
+#
+# cbar = plt.colorbar(cmap = 'jet')
+#
+# cbar.ax.tick_params(labelsize=15)
+#
+# plt.clim(7.5, 9.5);
+# plt.show()
+#
+#
+#
+#
+# ####GENERATOR SIZE
+#
+# #creates scatterplot
+# plt.scatter(x,y,c = gen_list,label = 'Weather Site',cmap ='jet')
+# #adds title
+# plt.title('Generator Size that Collects 80 Percent of Energy', fontsize = 25)
+# #adds axis
+# plt.xticks(ticks = [0,10,20,30,40,50,60], labels = [-125,-115,-105,-95,-85,-75,-65], fontsize = 15)
+# plt.yticks(ticks = [0,5,10,15,20,25], labels = [25,30,35,40,45,50], fontsize = 15)
+# plt.xlabel('Longitude', fontsize = 20)
+# plt.ylabel('Latitude', fontsize = 20)
+# #adds legend
+# plt.legend(loc=3, fontsize = 15)
+# cbar = plt.colorbar(cmap = 'jet')
+#
+# cbar.ax.tick_params(labelsize=15)
+#
+# cbar.set_label(label = 'Generator Size (m/s)', fontsize = 20)
+# plt.clim(6, 12);
+# plt.show()
+#
+#
+#             #####ENERGY
+#
+# #creates scatterplot
+# plt.scatter(x,y,c = np.log10(energy_list),label = 'Weather Site',cmap ='jet')
+# #adds title
+# plt.title('Annual Energy', fontsize = 25)
+# #adds axis
+# plt.xticks(ticks = [0,10,20,30,40,50,60], labels = [-125,-115,-105,-95,-85,-75,-65], fontsize = 15)
+# plt.yticks(ticks = [0,5,10,15,20,25], labels = [25,30,35,40,45,50], fontsize = 15)
+# plt.xlabel('Longitude', fontsize = 20)
+# plt.ylabel('Latitude', fontsize = 20)
+# #adds legend
+# plt.legend(loc=3, fontsize = 15)
+# cbar = plt.colorbar(cmap = 'jet')
+#
+# cbar.ax.tick_params(labelsize=15)
+#
+# cbar.set_label(label = 'Log10 of Average Annual Energy (J)', fontsize = 20)
+# plt.clim(8, 9.5);
+# plt.show()
+#
+#
+#             #####POWER
+#
+# #creates scatterplot
+# plt.scatter(x,y,c = power_list,label = 'Weather Site',cmap ='jet')
+# #adds title
+# plt.title('Average Power', fontsize = 25)
+# #adds axis
+# plt.xticks(ticks = [0,10,20,30,40,50,60], labels = [-125,-115,-105,-95,-85,-75,-65], fontsize = 15)
+# plt.yticks(ticks = [0,5,10,15,20,25], labels = [25,30,35,40,45,50], fontsize = 15)
+# plt.xlabel('Longitude', fontsize = 20)
+# plt.ylabel('Latitude', fontsize = 20)
+# #adds legend
+# plt.legend(loc=3, fontsize = 15)
+# cbar = plt.colorbar(cmap = 'jet')
+#
+# cbar.ax.tick_params(labelsize=15)
+#
+# cbar.set_label(label = 'Power (W)', fontsize = 20)
+# plt.clim(20, 150);
+# plt.show()
+#
+#
+#             #####SPEED
+#
+# #creates scatterplot
+# plt.scatter(x,y,c = speed_list,label = 'Weather Site',cmap ='jet')
+# #adds title
+# plt.title('Average Speed', fontsize = 25)
+# #adds axis
+# plt.xticks(ticks = [0,10,20,30,40,50,60], labels = [-125,-115,-105,-95,-85,-75,-65], fontsize = 15)
+# plt.yticks(ticks = [0,5,10,15,20,25], labels = [25,30,35,40,45,50], fontsize = 15)
+# plt.xlabel('Longitude', fontsize = 20)
+# plt.ylabel('Latitude', fontsize = 20)
+# #adds legend
+# plt.legend(loc=3, fontsize = 15)
+# cbar = plt.colorbar(cmap = 'jet')
+#
+# cbar.ax.tick_params(labelsize=15)
+#
+# cbar.set_label(label = 'Speed (m/s)', fontsize = 20)
+# plt.clim(1, 7);
+# plt.show()
+#
+#
+#             #####VELOCITY
+#
+# #creates scatterplot
+# plt.scatter(x,y,c = velocity_list,label = 'Weather Site',cmap ='jet')
+# #adds title
+# plt.title('Average Velocity', fontsize = 25)
+# #adds axis
+# plt.xticks(ticks = [0,10,20,30,40,50,60], labels = [-125,-115,-105,-95,-85,-75,-65], fontsize = 15)
+# plt.yticks(ticks = [0,5,10,15,20,25], labels = [25,30,35,40,45,50], fontsize = 15)
+# plt.xlabel('Longitude', fontsize = 20)
+# plt.ylabel('Latitude', fontsize = 20)
+# #adds legend
+# plt.legend(loc=3, fontsize = 15)
+# cbar = plt.colorbar(cmap = 'jet')
+#
+# cbar.ax.tick_params(labelsize=15)
+#
+# cbar.set_label(label = 'Velocity (m/s)', fontsize = 20)
+# plt.clim(1, 7);
+# plt.show()
+#
+#
+#                 ####ANGLES
+# u_array = np.sin(angle_list) #north/south
+# v_array = np.cos(angle_list) #east/west
+#
+# #creates scatterplot
+# plt.quiver(x,y, u_array, v_array, scale = (1-all_angle_list)*100)
+# #adds title
+# plt.title('Wind Angle', fontsize = 25)
+# #adds axis
+# plt.xticks(ticks = [0,10,20,30,40,50,60], labels = [-125,-115,-105,-95,-85,-75,-65], fontsize = 15)
+# plt.yticks(ticks = [0,5,10,15,20,25], labels = [25,30,35,40,45,50], fontsize = 15)
+# plt.xlabel('Longitude', fontsize = 20)
+# plt.ylabel('Latitude', fontsize = 20)
+# #adds legend
+# #plt.legend(loc=3, fontsize = 15)
+#
+# plt.show()
+#
+#
+#             ###VELOCITY/SPEED
+# #creates scatterplot
+# plt.scatter(x,y,c = velocity_list/speed_list,label = 'Weather Site',cmap ='jet')
+# #adds title
+# plt.title('Velocity/Speed', fontsize = 25)
+# #adds axis
+# plt.xticks(ticks = [0,10,20,30,40,50,60], labels = [-125,-115,-105,-95,-85,-75,-65], fontsize = 15)
+# plt.yticks(ticks = [0,5,10,15,20,25], labels = [25,30,35,40,45,50], fontsize = 15)
+# plt.xlabel('Longitude', fontsize = 20)
+# plt.ylabel('Latitude', fontsize = 20)
+# #adds legend
+# plt.legend(loc=3, fontsize = 15)
+# cbar = plt.colorbar(cmap = 'jet')
+#
+# cbar.ax.tick_params(labelsize=15)
+#
+# #cbar.set_label( fontsize = 20)
+# plt.clim(.5,1);
+# plt.show()
