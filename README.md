@@ -8,4 +8,14 @@ Data taken once an hour at 10 meters was downloaded from https://github.com/NREL
 
 Once data is downloaded prediction.py uses both sets to run polynomial regression and generate 10 meter data taken every 5 minutes.
 
-wind_data_analysis.py generates maps of the USA with information about wind turbine efficiency at 10 meters (such as angle of highest efficiency, most effiecient generator and flywheel size, etc)
+dump.py analzyes the data and pickles specific information based on the predicted 10 meter 5 minute data. The main 4 function are:
+dump_pickles_one_gen - calulates optimal generator size
+dump_pickles_one_fly - annual energy produced with and without a flywheel
+dump_pickles_basic - speed, velocity, pwer, energy, angle of wind
+dump_pickles_cost - generator and flywheel combination that have the lowest cost
+
+load.py generates maps of the USA with information about wind turbine (such as angle of highest efficiency, most effiecient generator and flywheel size, etc) based on the data that was pickled in dump. The main 4 functions are:
+load_graphs_one_gen - calulates ptimal generator size
+load_graphs_one_fly - calulates annual energy produced with and without a flywheel
+load_graphs_basic - calulates speed, velocity, pwer, energy, angle of wind
+load_graphs_cost - calulates generator and flywheel combination that have the lowest cost
