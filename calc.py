@@ -58,7 +58,7 @@ def energy_function(power_array):
     energy = np.array(simps(power_array,x))*60
     return energy
 
-def velocity_function(u_array,v_array,angle,width,speed_up = 1):
+def velocity_function(u_array,v_array,angle,width,perp=False,speed_up = 1):
     """calculates the veclocty of the wind an angled turbine would collect
     and how much power that turbine would collect
     Inputs:
@@ -78,9 +78,10 @@ def velocity_function(u_array,v_array,angle,width,speed_up = 1):
     #no loss of speed if angle difference is within specified width
     #the lower the angle difference the more power the wind generates
 
-    # angle_difference_width = angle_difference-width/2
-    # angle_difference = np.where(angle_difference>(2*math.pi-width/2), 0, angle_difference)
-    # angle_difference = np.where(angle_difference_width<0, 0, angle_difference)
+    if perp == False:
+        angle_difference_width = angle_difference-width/2
+        angle_difference = np.where(angle_difference>(2*math.pi-width/2), 0, angle_difference)
+        angle_difference = np.where(angle_difference_width<0, 0, angle_difference)
 
     #velocity of the wind that can be collected by the turbine
     velocity_array = np.cos(angle_difference)*speed_array
@@ -92,7 +93,7 @@ def velocity_function(u_array,v_array,angle,width,speed_up = 1):
     power_array = power_function(velocity_array)
     return [power_array,velocity_array,speed_array]
 
-def all_angle_power(u_array,v_array,num_angles,width,speed_up=1):
+def all_angle_power(u_array,v_array,num_angles,width,perp=False,speed_up=1):
     """calculates the power a turbine will collect when facing num_angles different
     directions and can collect wind without loss over a range of width radians
     Inputs:
@@ -105,7 +106,8 @@ def all_angle_power(u_array,v_array,num_angles,width,speed_up=1):
     power_angle_list = [] #creates a list that will contain power at each angle
     for i in range(num_angles): #for each angle
         #calculates power of turbine
-        power_angle_list.append(velocity_function(u_array,v_array,2*math.pi*(i/num_angles),width,speed_up)[0])
+        power_angle_list.append(velocity_function(u_array,v_array,2*math.pi*(i/num_angles),width,perp,speed_up)[0])
+        # power_angle_list.append(velocity_function(u_array,v_array,2*math.pi*(i/num_angles)-(math.pi/2),width,speed_up)[0])
     return np.array(power_angle_list)
 
 def best_angle_energy(u_array,v_array,num_angles,width,speed_up = 1):
@@ -136,7 +138,7 @@ def best_angle_energy(u_array,v_array,num_angles,width,speed_up = 1):
             break #has preference towards lower angles
     return best_angle,best_energy
 
-def coordinate_info(u_array,v_array,num_angles,width,speed_up = 1):
+def coordinate_info(u_array,v_array,num_angles,width,perp=False,speed_up = 1):
     """used for grouping all important information together and
     calling many smaller functions
     Inputs:
@@ -150,7 +152,7 @@ def coordinate_info(u_array,v_array,num_angles,width,speed_up = 1):
     wind_info: power, velocity and speed at the best angle
     """
     angles = best_angle_energy(u_array,v_array,num_angles,width,speed_up)
-    wind_info = velocity_function(u_array,v_array,angles[0],width,speed_up)
+    wind_info = velocity_function(u_array,v_array,angles[0],width,perp,speed_up)
     return angles,wind_info
 
 def generator_energy(power_array,gen_size):
@@ -174,7 +176,7 @@ def generator_energy(power_array,gen_size):
     return new_energy
 
 
-def all_generators_energy(power_array,original_energy,gen_min,gen_max,num_gen):
+def all_generators_energy(power_array,original_energy,gen_min,gen_max,num_gen,fly_size):
     """calculates the percentage of possible energy each of the num_gen generators
     ranging from gen_min to gen_max collect
     Inputs:
@@ -194,14 +196,18 @@ def all_generators_energy(power_array,original_energy,gen_min,gen_max,num_gen):
     energy_percents = []
     for i in range(num_gen): #number of dif sized generators
         #iterating over generators between size min_gen to max_gen (m/s)
-        gen_energy = generator_energy(power_array,gen_min+(i/(num_gen-1))*(gen_max-gen_min))
+        gen_energy = flywheel_energy(power_array,power_function(gen_min+(i/(num_gen-1))*(gen_max-gen_min)),fly_size)
         #percentage of original energy this generator collects
-        energy_difference = gen_energy/original_energy
+        # energy_difference = gen_energy/original_energy
+        energy_difference = gen_energy/generator_energy(power_array,reverse_power_function(5000))
+        # print('FLY',gen_energy)
+        # print('NO FLY',generator_energy(power_array,reverse_power_function(5000)))
+        # print('DIF',energy_difference)
         energy_percents.append(energy_difference)
     #percentage difference between original energy and energy with all diferent generators
     return np.array(energy_percents)
 
-def generator_classification(power_array,original_energy,gen_min,gen_max,num_gen,best_percent):
+def generator_classification(power_array,original_energy,gen_min,gen_max,num_gen,best_percent,fly_size):
     """classifying each weather location to an optimum generator size that collects the closest
     best_percent of the possible energy at that weather site
     Inputs:
@@ -220,7 +226,7 @@ def generator_classification(power_array,original_energy,gen_min,gen_max,num_gen
                        generators collect
     """
     #percentage of optimal energy with num_gen different genrators
-    percent_all_gen = all_generators_energy(power_array,original_energy,gen_min,gen_max,num_gen)
+    percent_all_gen = all_generators_energy(power_array,original_energy,gen_min,gen_max,num_gen,fly_size)
     #all percentages higher than best_percent are zero
     percent_below = np.where(percent_all_gen>=best_percent,0,percent_all_gen)
     #determining which generator is closest and lower than best_percent
@@ -244,10 +250,12 @@ def generator_classification(power_array,original_energy,gen_min,gen_max,num_gen
             break
         #if all percentages are above best percent
         if above_best:
-            #adding the lowest percentage
+            #adding the lowest percentage-
             best_percent = percent_all_gen[0]
             #adding the smallest generator
             best_gen = gen_min
+    # print('GEN',best_gen)
+    # print('PER',best_percent)
     return best_gen,best_percent
 
 def flywheel_energy(power_array,max_gen,max_fly):
@@ -260,6 +268,9 @@ def flywheel_energy(power_array,max_gen,max_fly):
     Outputs:
     gen_energy: sum of energy collected by the generator in J
     """
+    if max_fly == 0:
+        return generator_energy(power_array,reverse_power_function(max_gen))
+
     #power_difference will be negative if power is below max
     power_dif = power_array - max_gen
 
@@ -331,15 +342,17 @@ def cost_curve(gen_size,fly_size,energy,lifetime = 20):
     #8760 is number of hours in a year
     capacity = kilowatt_hours/(8760*gen_size)
     capital_cost = 2250*gen_size #TODO ADD COST CURVE
-    maintenance = 44*lifetime*gen_size #yearly maintenance cost
+    maintenance = 44*gen_size #yearly maintenance cost
     capital_recovery = (.03*(1+.03)**lifetime)/(((1+.03)**lifetime)-1)
 
     cost_2 = (3230*capital_recovery+44)/(8760*capacity)
-    cost_3 = (((capital_cost+maintenance)*.03)/(1-(1+.03)**(-lifetime)))/(5*8760*capacity)
+    cost_3 = (((capital_cost+maintenance)*.03)/(1-(1+.03)**(-lifetime)))/(8760*capacity)
+    cost_4 = (capital_cost*.074+maintenance)/(gen_size*8760*capacity)
 
-    return cost_3
 
-def best_cost(gen_min,gen_max,fly_min,fly_max,num_gen,num_fly,energy):
+    return cost_4
+
+def best_cost(gen_min,gen_max,fgeneratorly_min,fly_max,num_gen,num_fly,energy):
     """calculates the lowest possible cost in dollars per kilowatt
     Inputs:
     gen_min: max wind speed (m/s) the min generator could capture
