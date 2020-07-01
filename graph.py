@@ -133,7 +133,7 @@ def cost_graph(cost_list,x,y):
     cbar = plt.colorbar(cmap = 'jet') #creates color bar
     cbar.ax.tick_params(labelsize=15) #sets colorbar fontsize
     cbar.set_label(label = 'Dollar per kilowatt Hour', fontsize = 20) #adds color bar label
-    plt.clim(0,.4); #sets color bar value limits
+    plt.clim(0,.3); #sets color bar value limits
     plt.show() #displays graph
 
 def cost_cutoff_graph(cost_list,cutoff,x,y):
@@ -161,21 +161,14 @@ def best_gen_size_graph(best_gen_size_list,x,y):
             x: list of x coordinates from 0 to 60
             y: list of y coordinates from 0 to 25
     """
-    print('start')
-    print(best_gen_size_list)
     plt.scatter(x,y,c = best_gen_size_list,label = 'Weather Site',cmap ='jet') #creates scatterplot
-    print('scatter')
     #adds x and y axis ticks and labels, and the title
     add_all('Optimal Generator Size')
-    print('labels')
     plt.legend(loc=3, fontsize = 15) #adds legend
-    print('colorbar')
     cbar = plt.colorbar(cmap = 'jet') #creates color bar
     cbar.ax.tick_params(labelsize=15) #sets colorbar fontsize
-    cbar.set_label(label = 'Generator Size (m/s)', fontsize = 20) #adds color bar label
-    print('hello')
-    plt.clim(min(best_gen_size_list),min(best_gen_size_list)); #sets color bar value limits
-    print('almost done')
+    cbar.set_label(label = 'Generator Size (KW)', fontsize = 20) #adds color bar label
+    plt.clim(2,5); #sets color bar value limits
     plt.show() #displays graph
 
 def best_fly_size_graph(best_fly_size_list,x,y):
@@ -214,23 +207,26 @@ def capacity_graph(gen_energy_list,gen_size,x,y):
     plt.clim(0,.5); #sets color bar value limits
     plt.show() #displays graph
 
-def solar_graph(gen_energy_list,x,y):
+def solar_graph(gen_energy_list,capacity_list,x,y):
     """graphs the percentage energy generated compared to how much
-    solar energy could be peoducedat each weather site
+    solar energy could be produced at each weather site
     the wind turbine can collect wind from a given range of angles
     Inputs: gen_energy_list: how much energy generator collected in watts
             x: list of x coordinates from 0 to 60
             y: list of y coordinates from 0 to 25
     """
     #37 is number of turbines
-    plt.scatter(x,y,c = ((gen_energy_list/3600000)*37)/1108687.5,label = 'Weather Site',cmap ='jet') #creates scatterplot
+    print(sum((gen_energy_list/3600000)*37)/len(gen_energy_list))
+    print(sum((capacity_list*(52560*60*30*350)/3600000)*2812.5)/len(gen_energy_list))
+    # plt.scatter(x,y,c = capacity_list,label = 'Weather Site',cmap ='jet')
+    plt.scatter(x,y,c = ((gen_energy_list/3600000)*37)/(capacity_list*(52560*60*30*350*2812.5/3600000)),label = 'Weather Site',cmap ='jet') #creates scatterplot
     #adds x and y axis ticks and labels, and the title
     add_all('Solar Percentage')
     plt.legend(loc=3, fontsize = 15) #adds legend
     cbar = plt.colorbar(cmap = 'jet') #creates color bar
     cbar.ax.tick_params(labelsize=15) #sets colorbar fontsize
     cbar.set_label(label = 'Percentage of Solar KWH', fontsize = 20) #adds color bar label
-    plt.clim(0,.5); #sets color bar value limits
+    plt.clim(.0,.3); #sets color bar value limits
     plt.show() #displays graph
 
 def load_graphs_one_fly(name):
@@ -296,7 +292,7 @@ def load_graphs_basic(name):
     """graphs several basic info graphs (energy,power,speed,velocity,velocity/speed,angle)
     Inputs: name: string that was used to label the files when loading them
     """
-    x,y,energy_list,angle_list,power_list,speed_list,velocity_list,gen_energy_list,cost_list = load_pickles_basic(name)
+    x,y,energy_list,angle_list,power_list,speed_list,velocity_list,gen_energy_list,cost_list,velocity2_list = load_pickles_basic(name)
     energy_graph(energy_list,x,y) #graphs annual energy of a turbine
     power_graph(power_list,x,y) #graphs average power collected by a turbine
     speed_graph(speed_list,x,y) #graphs average speed of wind
@@ -304,17 +300,39 @@ def load_graphs_basic(name):
     speed_proportion_graph(velocity_list, speed_list,x,y) #graphs velocit divided by speed
     angle_graph(angle_list,x,y) #graphs vectors that represent the angle that collects the highest annual energy
 
-def load_graphs_capacity(name,gen_size,cutoff=False):
+def load_graphs_capacity(name,solar_name,gen_size,cutoff=False):
     """graphs several capacity and cost graphs
     Inputs: name: string that was used to label the files when loading them
             gen_size: size in KW of gen
     """
+    os.chdir('/media/sophie/Rapid/AccelerateWind/data')
+    x_solar = pickle.load(open('x%s.txt' % (solar_name), 'rb'))
+    y_solar = pickle.load(open('y%s.txt' % (solar_name), 'rb'))
+    capacity_list = pickle.load(open('capacity_list_%s.txt' % (solar_name), 'rb'))
+
     x,y,energy_list,angle_list,power_list,speed_list,velocity_list,gen_energy_list,cost_list,velocity2_list = load_pickles_basic(name)
+    print(sum(cost_list/len(cost_list)))
+
+    ordered_cap = []
+
+    for i in range(len(x)):
+        for j in range(len(x_solar)):
+            if x[i] == x_solar[j]:
+                if y[i] == y_solar[j]:
+                    print(i,j)
+                    ordered_cap.append(capacity_list[j])
+
     cost_graph(cost_list,x,y)
     capacity_graph(gen_energy_list,gen_size,x,y)
-    solar_graph(gen_energy_list,x,y)
+    solar_graph(gen_energy_list,np.array(ordered_cap),x,y)
     if cutoff:
         cost_cutoff_graph(cost_list,cutoff,x,y)
 
 if __name__ == '__main__':
-    load_graphs_capacity('power',5)
+    load_graphs_capacity('lcoe_simple2','solar',5)
+
+
+
+    # x,y,gen_list,percent_list,energy_list = load_pickles_one_gen('fly360_extra')
+    # best_gen_size_graph(power_function(gen_list)/1000,x,y)
+    # energy_graph(energy_list,x,y)
