@@ -326,7 +326,7 @@ def all_flywheel_gen_energy(power_array,gen_min,gen_max,fly_min,fly_max,num_gen,
             gen_energy_array[i,j] = flywheel_energy(power_array,power_function(gen_min+(i/(num_gen-1))*(gen_max-gen_min)),fly_min+(j/(num_fly-1)*fly_max))
     return gen_energy_array
 
-def cost_curve(gen_size,fly_size,energy,lifetime = 20):
+def cost_curve(gen_size,fly_size,energy,lifetime = 30):
     """calculates the cost of a turbine in dollars per kilowatt assuming it
     runs for 20 years
     Inputs:
@@ -346,11 +346,11 @@ def cost_curve(gen_size,fly_size,energy,lifetime = 20):
     capital_recovery = (.03*(1+.03)**lifetime)/(((1+.03)**lifetime)-1)
 
     cost_2 = (3230*capital_recovery+44)/(8760*capacity)
-    cost_3 = (((capital_cost+maintenance)*.03)/(1-(1+.03)**(-lifetime)))/(8760*capacity)
+    cost_3 = (((capital_cost+maintenance)*.03)/(1-(1+.03)**(-lifetime)))/(gen_size*8760*capacity)
     cost_4 = (capital_cost*.074+maintenance)/(gen_size*8760*capacity)
 
 
-    return cost_4
+    return cost_3
 
 def best_cost(gen_min,gen_max,fgeneratorly_min,fly_max,num_gen,num_fly,energy):
     """calculates the lowest possible cost in dollars per kilowatt
