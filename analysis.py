@@ -3,6 +3,7 @@ import pickle
 from dump import *
 from calc import *
 from load import *
+from graph import *
 
 
 def power_average(name,bucket_size,max_power):
@@ -84,44 +85,54 @@ def power_cost(name,bucket_size,max_velocity):
     #loading all lists stored in load_pickles_basic
     (x,y,energy_list,angle_list,power_list,speed_list,velocity_list,gen_energy_list,cost_list,velocity2_list) = load_pickles_basic(name)
     #creating a list that will hold the percentage of wind
-    max_velocity = power_function(max_velocity)
+    # max_velocity = power_function(max_velocity)
 
     #calculating the number of different buckets there will have to be
     num_buckets = math.ceil(max_velocity/bucket_size)
 
 
     for k in range(len(velocity2_list)):
-        print('k:',k)
-        print(energy_list[k]/3600000)
-        if cost_list[k]<.05:
-            all_velocity = velocity2_list[k]/1.6
-            percent_list = []
-            for i in range(num_buckets): #for each bucket
-                percent_list.append(0) #each bucket starts with 0 percent
-                for velocity in all_velocity: #for each coordinates average power
-                    #if an average power is within the range of the current bucket
-                    if velocity >= i*bucket_size and velocity < (i+1)*bucket_size:
-                        #adds a count to the percentage list
-                        percent_list[i] += 1
-
-            #converting to percent by dividing by number of coordinates and multiplying by 100
-            percent_list = np.array(percent_list)*100/len(all_velocity)
-
-            for i in range(num_buckets): #for each bucket
-                if percent_list[i] != 0: #if the percent is not 0
-                    #prints the percetnage of weather sites whose average power fall within the cuttent bucket
-                    print(percent_list[i],'percent of weather sites between',i*bucket_size,'m/s and',(i+1)*bucket_size, 'm/s \n')
-
-            ##AVERAGE POWER DISTRUBUTION HISTOGRAM
-            plt.hist(all_velocity, bins = num_buckets,range = (0,max_velocity)) #creates histogram
-            plt.title('Frequency of Power at Different Coordinates', fontsize = 25) #adds title
-            plt.xlabel('Average Power (Watts)', fontsize = 20) #labels x axis as longitude
-            plt.ylabel('Number of Locations', fontsize = 20) #labels y axis as latitude
-            plt.xticks(fontsize = 15) #setting font size of x axis values
-            plt.yticks(fontsize = 15) #setting font size of y axis values
-            plt.show() #displays graph
+        # print('k:',k)
+        # print(energy_list[k]/3600000)
+        if cost_list[k]<.1 and x[k] >= 45 and y[k] >= 17:
+            print(' NEW POINT')
+            print('coords',x[k],y[k])
+            print('cost',cost_list[k])
+            print('velcoity',velocity_list[k])
+            print('proportion',velocity_list[k]/speed_list[k])
+            print('AEP',gen_energy_list[k]/(3600000))
+            print('capacity',((gen_energy_list[k]/3600000)/(8760*5)))
+            #
+            # # cost_graph(cost_list[k],x[k],y[k])
+            # all_velocity = velocity2_list[k]/1.6
+            # percent_list = []
+            # for i in range(num_buckets): #for each bucket
+            #     percent_list.append(0) #each bucket starts with 0 percent
+            #     for velocity in all_velocity: #for each coordinates average power
+            #         #if an average power is within the range of the current bucket
+            #         if velocity >= i*bucket_size and velocity < (i+1)*bucket_size:
+            #             #adds a count to the percentage list
+            #             percent_list[i] += 1
+            #
+            # #converting to percent by dividing by number of coordinates and multiplying by 100
+            # percent_list = np.array(percent_list)*100/len(all_velocity)
+            #
+            # for i in range(num_buckets): #for each bucket
+            #     if percent_list[i] != 0: #if the percent is not 0
+            #         #prints the percetnage of weather sites whose average power fall within the cuttent bucket
+            #         #print(percent_list[i],'percent of weather sites between',i*bucket_size,'m/s and',(i+1)*bucket_size, 'm/s \n')
+            #         pass
+            #
+            # ##AVERAGE POWER DISTRUBUTION HISTOGRAM
+            # plt.hist(all_velocity, bins = num_buckets,range = (0,max_velocity)) #creates histogram
+            # plt.title('Frequency of Power at Different Coordinates', fontsize = 25) #adds title
+            # plt.xlabel('Average Power (Watts)', fontsize = 20) #labels x axis as longitude
+            # plt.ylabel('Number of Locations', fontsize = 20) #labels y axis as latitude
+            # plt.xticks(fontsize = 15) #setting font size of x axis values
+            # plt.yticks(fontsize = 15) #setting font size of y axis values
+            # plt.show() #displays graph
 
 
 if __name__ == '__main__':
     # power_cost('power',1,15)
-    power_cost('power',100,14)
+    power_cost('debug2',1,14)
