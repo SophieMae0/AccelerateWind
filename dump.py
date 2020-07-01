@@ -246,26 +246,26 @@ def dump_pickles_basic(name,width,num_angles,gen_size,fly_size,perp=False,vel_fa
     pickle.dump(velocity2_list,open('velocity2_list_%s.txt' % (name), 'wb'))
 
 if __name__ == '__main__':
-    #
-    # name = 'solar,all2'
-    # width = np.pi
-    # num_angles = 8
-    # gen_size = reverse_power_function(5000)
-    # fly_size = 0
-    # perp = False
-    # vel_factor = 2
-    # dump_pickles_basic(name,width,num_angles,gen_size,fly_size,perp,vel_factor)
 
-    time = 6
-
-    name = 'fly360_extra'
+    name = 'lcoe_simple2'
     width = np.pi
     num_angles = 8
-    gen_min = reverse_power_function(2000)
-    gen_max =reverse_power_function(5000)
-    best_percent = .9
-    num_gen = 10
-    fly_size = 5*time*3600000 #5*time killowatt hours converted to joules
+    gen_size = reverse_power_function(5000)
+    fly_size = 0
     perp = True
-    vel_factor = 1.6
-    dump_pickles_one_gen(name,width,num_angles,gen_min,gen_max,best_percent,num_gen,fly_size,perp,vel_factor)
+    vel_factor = 1
+    dump_pickles_basic(name,width,num_angles,gen_size,fly_size,perp,vel_factor)
+
+    # time = 6
+    #
+    # name = 'fly360_extra'
+    # width = np.pi
+    # num_angles = 8
+    # gen_min = reverse_power_function(2000)
+    # gen_max =reverse_power_function(5000)
+    # best_percent = .9
+    # num_gen = 10
+    # fly_size = 5*time*3600000 #5*time killowatt hours converted to joules
+    # perp = True
+    # vel_factor = 1.6
+    # dump_pickles_one_gen(name,width,num_angles,gen_min,gen_max,best_percent,num_gen,fly_size,perp,vel_factor)
