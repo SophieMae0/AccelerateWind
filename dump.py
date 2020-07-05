@@ -38,8 +38,8 @@ def dump_pickles_one_gen(name,width,num_angles,gen_min,gen_max,best_percent,num_
         print('coordinate:', file) #prints coordinate the loop is currenting analyzing
         coord = eval(file) #extracting the name of the file which is a coordinate
         u10,v10,direction = (get_data(file)) #extracting wind speed and direction
-        u10 = np.delete(u10,slice(103000,103500))*vel_factor #deleting bad data
-        v10 = np.delete(v10,slice(103000,103500))*vel_factor #deleting bad data
+        u10 = np.delete(u10,slice(103000,103500)) #deleting bad data
+        v10 = np.delete(v10,slice(103000,103500)) #deleting bad data
         #generator size that collects lower than but closest to the best percent of energy
         info = coordinate_info(u10,v10,num_angles,width,perp,vel_factor)
         power_array = info[1][0] #list of power every 5 minutes at the best angle
@@ -90,8 +90,8 @@ def dump_pickles_one_fly(name,width,num_angles,gen_size,fly_size,perp=False,vel_
         print('coordinate:', file) #prints coordinate the loop is currenting analyzing
         coord = eval(file) #extracting the name of the file which is a coordinate
         u10,v10,direction = (get_data(file)) #extracting wind speed and direction
-        u10 = np.delete(u10,slice(103000,103500))*vel_factor #deleting bad data
-        v10 = np.delete(v10,slice(103000,103500))*vel_factor #deleting bad data
+        u10 = np.delete(u10,slice(103000,103500)) #deleting bad data
+        v10 = np.delete(v10,slice(103000,103500)) #deleting bad data
         #calculating best angle and energy, power, velocity and speed at that angle
         info = coordinate_info(u10,v10,num_angles,width,perp,vel_factor)
         power_array = info[1][0] #list of power every 5 minutes at the best angle
@@ -144,8 +144,8 @@ def dump_pickles_cost(name,width,num_angles,gen_min,gen_max,fly_min,fly_max,num_
         print('coordinate:', file) #prints coordinate the loop is currenting analyzing
         coord = eval(file) #extracting the name of the file which is a coordinate
         u10,v10,direction = (get_data(file)) #extracting wind speed and direction
-        u10 = np.delete(u10,slice(103000,103500))*vel_factor #deleting bad data
-        v10 = np.delete(v10,slice(103000,103500))*vel_factor #deleting bad data
+        u10 = np.delete(u10,slice(103000,103500)) #deleting bad data
+        v10 = np.delete(v10,slice(103000,103500)) #deleting bad data
         info = coordinate_info(u10,v10,num_angles,width,perp,vel_factor)
         power_array = info[1][0] #list of power every 5 minutes at the best angle
         all_flywheel = all_flywheel_gen_energy(power_array,gen_min,gen_max,fly_min,fly_max,num_gen,num_fly)
