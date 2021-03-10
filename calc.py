@@ -19,7 +19,9 @@ def get_data(file_name):
     direction: array of wind direction (radians) taken every 5 minutes
                zero radians is the wind blowing exactly west
     """
-    data = np.memmap('/media/sophie/Rapid/AccelerateWind/fiveMinutes10/%s' % (file_name),mode='r+',dtype='float32',shape=(315360,2))
+    data = np.memmap('/media/sophie/Rapid/AccelerateWind/TestDataPred/%s' % (file_name),mode='r+',dtype='float32',shape=(315360,2))
+    #data = np.memmap('/media/sophie/Rapid/AccelerateWind/fiveMinutes10/%s' % (file_name),mode='r+',dtype='float32',shape=(315360,2))
+    data.flush()
     speed = np.array(data[:,0])
     direction = np.array(data[:,1])
     direction = 2*math.pi*direction/360 #converting to radians
@@ -38,6 +40,14 @@ def power_function(speed_array):
     """calculates power
     Input: wind speed m/s
     Output: power in Watts"""
+    x = speed_array
+    a = .408784772
+    b = -.0335235483
+    c = -1.22127219
+    d =  .00103098238
+    e = -.0000104298924
+    cp2 = a * x + b * (x**2) + c + d * (x**3) + e * (x**4)
+
     power_array = .5*ro*cp*area*(np.power(speed_array,3))
     return power_array
 
@@ -341,18 +351,23 @@ def cost_curve(gen_size,fly_size,energy,lifetime = 30):
     gen_size = power_function(gen_size)/1000 #converting to kilowatts
     #8760 is number of hours in a year
     capacity = kilowatt_hours/(8760*gen_size)
+
     capital_cost = 2250*gen_size #TODO ADD COST CURVE
-    maintenance = 44*gen_size #yearly maintenance cost
+
+    capital_cost = (-1.04622719 * gen_size + 0.0665693 * (gen_size**2) + 5.93691848)*gen_size*1000
+    print(capital_cost)
+
+    maintenance = 44*gen_size #yearly maintenance cost          multiplied by lifetime?
     capital_recovery = (.03*(1+.03)**lifetime)/(((1+.03)**lifetime)-1)
 
     cost_2 = (3230*capital_recovery+44)/(8760*capacity)
-    cost_3 = (((capital_cost+maintenance)*.03)/(1-(1+.03)**(-lifetime)))/(gen_size*8760*capacity)
+    cost_3 = (((capital_cost+maintenance)*.03)/(1-(1+.03)**(-lifetime)))/(gen_size*8760*capacity) #NREL
     cost_4 = (capital_cost*.074+maintenance)/(gen_size*8760*capacity)
 
-
+    print(cost_3)
     return cost_3
 
-def best_cost(gen_min,gen_max,fgeneratorly_min,fly_max,num_gen,num_fly,energy):
+def best_cost(gen_min,gen_max,fly_min,fly_max,num_gen,num_fly,energy):
     """calculates the lowest possible cost in dollars per kilowatt
     Inputs:
     gen_min: max wind speed (m/s) the min generator could capture
