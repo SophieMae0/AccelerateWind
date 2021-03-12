@@ -11,7 +11,7 @@ cp = .45 #coefficient of performance
 area = 8
 num_years = 3 #number of years data has been collected
 
-def get_data(file_name):
+def get_data(folder,file_name):
     """reads memory mapped file saves wind speed and direction from it
     Inputs: file_name: the name of the file
     Outputs: u_array: array wind speed (m/s) in north to south direction taken every 5 minutes
@@ -19,8 +19,7 @@ def get_data(file_name):
     direction: array of wind direction (radians) taken every 5 minutes
                zero radians is the wind blowing exactly west
     """
-    data = np.memmap('/media/sophie/Rapid/AccelerateWind/TestDataPred/%s' % (file_name),mode='r+',dtype='float32',shape=(315360,2))
-    #data = np.memmap('/media/sophie/Rapid/AccelerateWind/fiveMinutes10/%s' % (file_name),mode='r+',dtype='float32',shape=(315360,2))
+    data = np.memmap(folder+file_name,mode='r+',dtype='float32',shape=(315360,2))
     data.flush()
     speed = np.array(data[:,0])
     direction = np.array(data[:,1])
@@ -32,6 +31,7 @@ def get_data(file_name):
 def speed_function(u_array,v_array,speed_up = 1):
     """calculates speed
     Input: wind vectors in the u and v directions in m/s
+    speed_up: multiplied by the velocity (can be increased to mimic rooftop speeds)
     Output: wind speed in m/s"""
     speed_array = np.sqrt((u_array**2)+(v_array**2))*speed_up
     return speed_array
@@ -41,6 +41,8 @@ def power_function(speed_array):
     Input: wind speed m/s
     Output: power in Watts"""
     x = speed_array
+
+    #experimental cp, not currently in use
     a = .408784772
     b = -.0335235483
     c = -1.22127219
@@ -79,7 +81,12 @@ def velocity_function(u_array,v_array,angle,width,perp=False,speed_up = 1):
     Outputs:
     power_array: power of turbine (W) collecting wind from angle direction
     velocity_array: wind velocity (m/s) that is collected by the tubine
-    speed_array: speed of wind (m/s)"""
+    speed_array: speed of wind (m/s)
+    speed_up multiplied by the velocity (can be increased to mimic rooftop speeds)
+    perp: True when the turbine can only collect direct wind
+          False when the turbine can collect all wind in width
+    """
+
     speed_array = speed_function(u_array,v_array,speed_up)
     #angle in radians that the wind is blowing towards
     wind_angle = np.arctan2(u_array,v_array)+math.pi #making scale from 0 to 2pi
@@ -112,6 +119,9 @@ def all_angle_power(u_array,v_array,num_angles,width,perp=False,speed_up=1):
                 (equally distributed around a 2 pi radian circle)
     width: width in radians that wind can be collected with no loss
     Outputs: power of turbine facing num_angles different directions
+    vel_factor: multiplied by the velocity (can be increased to mimic rooftop speeds)
+    perp: True when the turbine can only collect direct wind
+          False when the turbine can collect all wind in width
     """
     power_angle_list = [] #creates a list that will contain power at each angle
     for i in range(num_angles): #for each angle
@@ -210,9 +220,6 @@ def all_generators_energy(power_array,original_energy,gen_min,gen_max,num_gen,fl
         #percentage of original energy this generator collects
         # energy_difference = gen_energy/original_energy
         energy_difference = gen_energy/generator_energy(power_array,reverse_power_function(5000))
-        # print('FLY',gen_energy)
-        # print('NO FLY',generator_energy(power_array,reverse_power_function(5000)))
-        # print('DIF',energy_difference)
         energy_percents.append(energy_difference)
     #percentage difference between original energy and energy with all diferent generators
     return np.array(energy_percents)
@@ -264,8 +271,6 @@ def generator_classification(power_array,original_energy,gen_min,gen_max,num_gen
             best_percent = percent_all_gen[0]
             #adding the smallest generator
             best_gen = gen_min
-    # print('GEN',best_gen)
-    # print('PER',best_percent)
     return best_gen,best_percent
 
 def flywheel_energy(power_array,max_gen,max_fly):
@@ -355,17 +360,13 @@ def cost_curve(gen_size,fly_size,energy,lifetime = 30):
     capital_cost = 2250*gen_size #TODO ADD COST CURVE
 
     capital_cost = (-1.04622719 * gen_size + 0.0665693 * (gen_size**2) + 5.93691848)*gen_size*1000
-    print(capital_cost)
 
     maintenance = 44*gen_size #yearly maintenance cost          multiplied by lifetime?
     capital_recovery = (.03*(1+.03)**lifetime)/(((1+.03)**lifetime)-1)
 
-    cost_2 = (3230*capital_recovery+44)/(8760*capacity)
-    cost_3 = (((capital_cost+maintenance)*.03)/(1-(1+.03)**(-lifetime)))/(gen_size*8760*capacity) #NREL
-    cost_4 = (capital_cost*.074+maintenance)/(gen_size*8760*capacity)
+    cost = (((capital_cost+maintenance)*.03)/(1-(1+.03)**(-lifetime)))/(gen_size*8760*capacity) #NREL
 
-    print(cost_3)
-    return cost_3
+    return cost
 
 def best_cost(gen_min,gen_max,fly_min,fly_max,num_gen,num_fly,energy):
     """calculates the lowest possible cost in dollars per kilowatt
