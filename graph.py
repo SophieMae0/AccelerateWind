@@ -3,17 +3,11 @@ from dump import *
 from calc import *
 from load import *
 
-def add_axis():
-    """adds the values of longitude and latitiude coordinates along the x and y axis
-    """
-    plt.xticks(ticks = [0,10,20,30,40,50,60], labels = [-125,-115,-105,-95,-85,-75,-65], fontsize = 10) #adds x axis
-    plt.yticks(ticks = [0,5,10,15,20,25], labels = [25,30,35,40,45,50], fontsize = 10) #adds y axis
 
 def add_all(title):
     """adds the title and labels x and y axis and longitude and latitude
     Inputs: title: a string of the title of the graph
     """
-    add_axis()
     plt.xlabel('Longitude', fontsize = 10) #labels x axis as longitude
     plt.ylabel('Latitude', fontsize = 10) #labels y axis as latitude
     plt.title(title, fontsize = 20)
@@ -67,7 +61,7 @@ def speed_graph(speed_list,x,y):
     cbar = plt.colorbar(cmap = 'jet') #creates color bar
     cbar.ax.tick_params(labelsize=15) #sets colorbar fontsize
     cbar.set_label(label = 'Speed (m/s)', fontsize = 20) #adds color bar label
-    plt.clim(1, 7); #sets color bar value limits
+    plt.clim(4, 5); #sets color bar value limits
     plt.show() #displays graph
 
 def velocity_graph(velocity_list,x,y):
@@ -79,7 +73,7 @@ def velocity_graph(velocity_list,x,y):
     """
     plt.scatter(x,y,c = velocity_list,label = 'Weather Site',cmap ='jet') #creates scatterplot
     #adds x and y axis ticks and labels, and the title
-    add_all('Average WInd Velocity')
+    add_all('Average Wind Velocity')
     plt.legend(loc=3, fontsize = 15) #adds legend
     cbar = plt.colorbar(cmap = 'jet') #creates color bar
     cbar.ax.tick_params(labelsize=15) #sets colorbar fontsize
@@ -95,7 +89,7 @@ def speed_proportion_graph(velocity_list, speed_list,x,y):
             x: list of x coordinates from 0 to 60
             y: list of y coordinates from 0 to 25
     """
-    plt.scatter(x,y,c = velocity_list/speed_list,label = 'Weather Site',cmap ='jet') #creates scatterplot
+    plt.scatter(x,y,c = velocity_list/speed_list,label = 'Weather Site',cmap ='jet', s = 5) #creates scatterplot
     #adds x and y axis ticks and labels, and the title
     add_all('Average Velocity/Average Speed')
     plt.legend(loc=3, fontsize = 15) #adds legend
@@ -216,17 +210,15 @@ def solar_graph(gen_energy_list,capacity_list,x,y):
             y: list of y coordinates from 0 to 25
     """
     #37 is number of turbines
-    print(sum((gen_energy_list/3600000)*37)/len(gen_energy_list))
-    print(sum((capacity_list*(52560*60*30*350)/3600000)*2812.5)/len(gen_energy_list))
-    # plt.scatter(x,y,c = capacity_list,label = 'Weather Site',cmap ='jet')
-    plt.scatter(x,y,c = ((gen_energy_list/3600000)*37)/(capacity_list*(52560*60*30*350*2812.5/3600000)),label = 'Weather Site',cmap ='jet') #creates scatterplot
+    # plt.scatter(x,y,c = capacity_list,label = 'Weather Site',cmap ='jet') 31536000
+    plt.scatter(x,y,c = ((gen_energy_list/3600000)*37)/(capacity_list*(60*60*24*365*350*2812.5/3600000)),label = 'Weather Site',cmap ='jet') #creates scatterplot
     #adds x and y axis ticks and labels, and the title
     add_all('Solar Percentage')
     plt.legend(loc=3, fontsize = 15) #adds legend
     cbar = plt.colorbar(cmap = 'jet') #creates color bar
     cbar.ax.tick_params(labelsize=15) #sets colorbar fontsize
     cbar.set_label(label = 'Percentage of Solar KWH', fontsize = 20) #adds color bar label
-    plt.clim(.0,.3); #sets color bar value limits
+    plt.clim(.0,.5); #sets color bar value limits
     plt.show() #displays graph
 
 def load_graphs_one_fly(name):
@@ -255,7 +247,9 @@ def load_graphs_one_fly(name):
     plt.scatter(x,y,c = np.log10(flywheel_gen_plain_list),label = 'Weather Site',cmap ='jet') #creates scatterplot
     plt.title('Annual Energy Stored in Generator Without Flywheel', fontsize = 15) #adds title
     add_axis() #adds x and y axis numbers and ticks
-    plt.xlabel('Longitude', fontsize = 20) #labels x axis as longitude
+    plt.xlabel('Longitude', fontsize = 20) #labels x axis as longitude20) #adds title
+    plt.xlabel('Percentage of Optimal Power', fontsize = 15) #labels x axis as longitude
+    plt.ylabel('Percentage of Locations', fontsize = 15) #labels y axis as latitude
     cbar = plt.colorbar(cmap = 'jet') #creates color bar
     cbar.ax.tick_params(labelsize=15) #sets colorbar fontsize
     plt.clim(8.5, 9.5); #sets color bar value limits
@@ -288,18 +282,6 @@ def load_graphs_cost(name):
     best_gen_size_graph(best_gen_size_list,x,y) #graphs generator size with lowest cost
     best_fly_size_graph(best_fly_size_list,x,y) #graphs flywheel size with lowest cost
 
-def load_graphs_basic(name):
-    """graphs several basic info graphs (energy,power,speed,velocity,velocity/speed,angle)
-    Inputs: name: string that was used to label the files when loading them
-    """
-    x,y,energy_list,angle_list,power_list,speed_list,velocity_list,gen_energy_list,cost_list,velocity2_list = load_pickles_basic(name)
-    energy_graph(energy_list,x,y) #graphs annual energy of a turbine
-    power_graph(power_list,x,y) #graphs average power collected by a turbine
-    speed_graph(speed_list,x,y) #graphs average speed of wind
-    velocity_graph(velocity_list,x,y) #graphs average velocity of wind collected by a turbine
-    speed_proportion_graph(velocity_list, speed_list,x,y) #graphs velocit divided by speed
-    angle_graph(angle_list,x,y) #graphs vectors that represent the angle that collects the highest annual energy
-
 def load_graphs_capacity(name,solar_name,gen_size,cutoff=False):
     """graphs several capacity and cost graphs
     Inputs: name: string that was used to label the files when loading them
@@ -311,7 +293,7 @@ def load_graphs_capacity(name,solar_name,gen_size,cutoff=False):
     capacity_list = pickle.load(open('capacity_list_%s.txt' % (solar_name), 'rb'))
 
     x,y,energy_list,angle_list,power_list,speed_list,velocity_list,gen_energy_list,cost_list,velocity2_list = load_pickles_basic(name)
-    print(sum(cost_list/len(cost_list)))
+
 
     ordered_cap = []
 
@@ -319,20 +301,93 @@ def load_graphs_capacity(name,solar_name,gen_size,cutoff=False):
         for j in range(len(x_solar)):
             if x[i] == x_solar[j]:
                 if y[i] == y_solar[j]:
-                    print(i,j)
                     ordered_cap.append(capacity_list[j])
 
+    print(sum(cost_list)/len(cost_list))
     cost_graph(cost_list,x,y)
     capacity_graph(gen_energy_list,gen_size,x,y)
     solar_graph(gen_energy_list,np.array(ordered_cap),x,y)
     if cutoff:
         cost_cutoff_graph(cost_list,cutoff,x,y)
 
+def load_graphs_basic(name,state):
+    """graphs several basic info graphs (energy,power,speed,velocity,velocity/speed,angle)
+    Inputs: name: string that was used to label the files when loading them
+    """
+    x,y,energy_list,angle_list,power_list,speed_list,velocity_list,gen_energy_list,cost_list,power2_list,x_state,y_state,speed_state,velocity_state,power_state,power2_state = load_pickles_basic(name)
+
+    energy_graph(energy_list,x,y) #graphs annual energy of a turbine
+    power_graph(power_list,x,y) #graphs average power collected by a turbine
+    speed_graph(speed_list,x,y) #graphs average speed of wind
+    velocity_graph(velocity_list,x,y) #graphs average velocity of wind collected by a turbine
+    speed_proportion_graph(velocity_list, speed_list,x,y) #graphs velocity divided by speed
+    velocity_state_graph(velocity_state,speed_state,x_state,y_state,state) #graphs pne states speed proportion
+    power_proportion_graph(power_list, power2_list,x,y) #graphs power divided by total possible power proportion
+    power_state_graph(power_state,power2_state,x_state,y_state,state) #graphs one states power
+
+def velocity_state_graph(velocity_state,speed_state,x_state,y_state,state_name):
+    """graphs average velocity of the wind at each weather site
+    the wind turbine can collect wind from a given range of angles
+    Inputs: velocity_list: list of average velocity (m/s) at each weather site
+            x: list of x coordinates from 0 to 60
+            y: list of y coordinates from 0 to 25
+    """
+    x = x_state[state_name]
+    y = y_state[state_name]
+
+    velocity = np.array(velocity_state[state_name])
+    speed = np.array(speed_state[state_name])
+
+    plt.scatter(x,y,c = np.array(velocity)/np.array(speed),label = 'Weather Site',cmap ='jet') #creates scatterplot
+    #adds x and y axis ticks and labels, and the title
+    add_all('Velcocity/Speed in ' + state_name)
+    #add_all('Average Wind Velocity')
+    plt.legend(loc=3, fontsize = 15) #adds legend
+    cbar = plt.colorbar(cmap = 'jet') #creates color bar
+    cbar.ax.tick_params(labelsize=15) #sets colorbar fontsize
+    plt.clim(0,1); #sets color bar value limits
+    plt.show() #displays graph
+
+def power_state_graph(power_state, power2_state,x_state,y_state,state_name):
+    """graphs average velocity divided by average speed of the wind at each weather site
+    the wind turbine can collect wind from a given range of angles
+    Inputs: velocity_list: list of average velocity (m/s) at each weather site
+            speed_list: list of average speed (m/s) at each weather site
+            x: list of x coordinates from 0 to 60
+            y: list of y coordinates from 0 to 25
+    """
+    power = np.array(power_state[state_name])
+    power2 = np.array(power2_state[state_name])
+
+    plt.scatter(x,y,c = power/power2,label = 'Weather Site',cmap ='jet') #creates scatterplot
+
+    #adds x and y axis ticks and labels, and the title
+    add_all('Actual Power/Potential Power in ' + state_name)
+    plt.legend(loc=3, fontsize = 15) #adds legend
+    cbar = plt.colorbar(cmap = 'jet') #creates color ba
+    cbar.ax.tick_params(labelsize=15) #sets colorbar fontsize
+    plt.clim(0,1); #sets color bar value limits
+    plt.show() #displays graph
+
+def power_proportion_graph(power_list, power2_list,x,y):
+    """graphs average velocity divided by average speed of the wind at each weather site
+    the wind turbine can collect wind from a given range of angles
+    Inputs: velocity_list: list of average velocity (m/s) at each weather site
+            speed_list: list of average speed (m/s) at each weather site
+            x: list of x coordinates from 0 to 60
+            y: list of y coordinates from 0 to 25
+    """
+    plt.scatter(x,y,c = power_list/power2_list,label = 'Weather Site',cmap ='jet', s = 5) #creates scatterplot
+
+    #adds x and y axis ticks and labels, and the title
+    add_all('Actual Power/Potential Power')
+    plt.legend(loc=3, fontsize = 15) #adds legend
+    cbar = plt.colorbar(cmap = 'jet') #creates color ba
+    cbar.ax.tick_params(labelsize=15) #sets colorbar fontsize
+    plt.clim(0,1); #sets color bar value limits
+    plt.show() #displays graph
+
 if __name__ == '__main__':
-    load_graphs_capacity('lcoe_simple2','solar',5)
-
-
-
-    # x,y,gen_list,percent_list,energy_list = load_pickles_one_gen('fly360_extra')
-    # best_gen_size_graph(power_function(gen_list)/1000,x,y)
-    # energy_graph(energy_list,x,y)
+    name = 'state big'
+    state = 'California'
+    load_graphs_basic(name,state)
