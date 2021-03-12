@@ -2,6 +2,7 @@ import numpy as np
 import math as math
 import pickle
 import os
+import dill
 from dump import *
 from calc import *
 
@@ -60,14 +61,20 @@ def load_pickles_basic(name):
     energy_list = np.array(pickle.load(open('energy_list_%s.txt' % (name), 'rb')))
     angle_list = np.array(pickle.load(open('angle_list_%s.txt' % (name), 'rb')))
     power_list = np.array(pickle.load(open('power_list_%s.txt' % (name), 'rb')))
+    power2_list = np.array(pickle.load(open('power2_list_%s.txt' % (name), 'rb')))
     speed_list = np.array(pickle.load(open('speed_list_%s.txt' % (name), 'rb')))
     velocity_list = np.array(pickle.load(open('velocity_list_%s.txt' % (name), 'rb')))
     gen_energy_list = np.array(pickle.load(open('gen_energy_list_%s.txt' % (name), 'rb')))
     cost_list = np.array(pickle.load(open('cost_list_%s.txt' % (name), 'rb')))
 
-    velocity2_list = np.array(pickle.load(open('velocity2_list_%s.txt' % (name), 'rb')))
+    x_state = dill.load(open('x_state_%s.txt' % (name), 'rb'))
+    y_state = dill.load(open('y_state_%s.txt' % (name), 'rb'))
+    speed_state = dill.load(open('speed_state_%s.txt' % (name), 'rb'))
+    velocity_state = dill.load(open('velocity_state_%s.txt' % (name), 'rb'))
+    power_state = dill.load(open('power_state_%s.txt' % (name), 'rb'))
+    power2_state = dill.load(open('power2_state_%s.txt' % (name), 'rb'))
 
-    return (x,y,energy_list,angle_list,power_list,speed_list,velocity_list,gen_energy_list,cost_list,velocity2_list)
+    return (x,y,energy_list,angle_list,power_list,speed_list,velocity_list,gen_energy_list,cost_list,power2_list,x_state,y_state,speed_state,velocity_state,power_state,power2_state)
 
 
 if __name__ == '__main__':
