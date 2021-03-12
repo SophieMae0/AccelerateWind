@@ -268,7 +268,15 @@ def load_graphs_one_gen(name):
     plt.legend(loc=3, fontsize = 15) #adds legend
     cbar = plt.colorbar(cmap = 'jet') #creates color bar
     cbar.ax.tick_params(labelsize=15) #sets colorbar fontsize
-    cbar.set_label(label = 'Generator Size (m/s)', fontsize = 20) #adds color bar label
+    cbar.set_label(label = 'Generator Size (m/s)', fontsize = 20) #adds color bar labelgy_list,x,y) #graphs annual energy of a turbine
+    power_graph(power_list,x,y) #graphs average power collected by a turbine
+    speed_graph(speed_list,x,y) #graphs average speed of wind
+    velocity_graph(velocity_list,x,y) #graphs average velocity of wind collected by a turbine
+    speed_proportion_graph(velocity_list, speed_list,x,y) #graphs velocity divided by speed
+    velocity_state_graph(velocity_state,speed_state,x_state,y_state,state) #graphs pne states speed proportion
+    power_proportion_graph(power_list, power2_list,x,y) #graphs power divided by total possible power proportion
+    power_state_graph(power_state,power2_state,x_state,y_state,state) #graphs one states power
+
     plt.clim(min(gen_list), max(gen_list)); #sets color bar value limits
     plt.show() #displays graph
 
@@ -278,14 +286,16 @@ def load_graphs_cost(name):
     Inputs: name: string that was used to label the files when loading them
     """
     x,y,low_cost_list, best_gen_size_list,best_fly_size_list = load_pickles_cost(name)
-    cost_graph(low_cost_list,x,y) #graphs lowest dollar per kilowatt cost
+    cost_graph(low_cost_list,x,y) #graphs lowest dollar per kilowatt cost0.
     best_gen_size_graph(best_gen_size_list,x,y) #graphs generator size with lowest cost
     best_fly_size_graph(best_fly_size_list,x,y) #graphs flywheel size with lowest cost
 
 def load_graphs_capacity(name,solar_name,gen_size,cutoff=False):
-    """graphs several capacity and cost graphs
+    """graphs cost and solar capacity
     Inputs: name: string that was used to label the files when loading them
-            gen_size: size in KW of gen
+    solar_name: name of the solar data files
+    gen_size: size of generator in KW
+    cut_off: cutoff of cost graph
     """
     os.chdir('/media/sophie/Rapid/AccelerateWind/data')
     x_solar = pickle.load(open('x%s.txt' % (solar_name), 'rb'))
@@ -303,7 +313,6 @@ def load_graphs_capacity(name,solar_name,gen_size,cutoff=False):
                 if y[i] == y_solar[j]:
                     ordered_cap.append(capacity_list[j])
 
-    print(sum(cost_list)/len(cost_list))
     cost_graph(cost_list,x,y)
     capacity_graph(gen_energy_list,gen_size,x,y)
     solar_graph(gen_energy_list,np.array(ordered_cap),x,y)
@@ -324,6 +333,7 @@ def load_graphs_basic(name,state):
     velocity_state_graph(velocity_state,speed_state,x_state,y_state,state) #graphs pne states speed proportion
     power_proportion_graph(power_list, power2_list,x,y) #graphs power divided by total possible power proportion
     power_state_graph(power_state,power2_state,x_state,y_state,state) #graphs one states power
+    #add your own graph
 
 def velocity_state_graph(velocity_state,speed_state,x_state,y_state,state_name):
     """graphs average velocity of the wind at each weather site
@@ -391,3 +401,9 @@ if __name__ == '__main__':
     name = 'state big'
     state = 'California'
     load_graphs_basic(name,state)
+
+    name = 'solar_data' #needs to be small data
+    solar_name = 'solar' #don't change
+    gen_size = '5'
+    cutoff = False
+    load_graphs_capacity(name,solar_name,gen_size,cutoff)
