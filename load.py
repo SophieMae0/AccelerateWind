@@ -6,12 +6,12 @@ import dill
 from dump import *
 from calc import *
 
-def load_pickles_basic(name):
+def load_pickles_basic(name,pickle_folder):
     """loads energy, angle, power, speed, and velocity,generator energy and cost lists that have been pickled
     Inputs: name: string that was used to label the files when loading them
     """
     #redirecting to the file that saves generated data
-    os.chdir('/media/sophie/Rapid/AccelerateWind/data')
+    os.chdir(pickle_folder)
     #loads data
     x = pickle.load(open('x.txt_%s.txt' % (name), 'rb'))
     y = pickle.load(open('y.txt_%s.txt' % (name), 'rb'))
