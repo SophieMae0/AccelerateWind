@@ -241,19 +241,19 @@ def solar_graph(gen_energy_list,capacity_list,x,y):
     plt.clim(.0,.5); #sets color bar value limits
     plt.show() #displays graph
 
-def load_graphs_capacity(name,solar_name,gen_size,cutoff=False):
+def load_graphs_capacity(name,pickle_folder,solar_name,gen_size,cutoff=False):
     """graphs cost and solar capacity
     Inputs: name: string that was used to label the files when loading them
     solar_name: name of the solar data files
     gen_size: size of generator in KW
     cut_off: cutoff of cost graph
     """
-    os.chdir('/media/sophie/Rapid/AccelerateWind/data')
+    os.chdir(pickle_folder)
     x_solar = pickle.load(open('x%s.txt' % (solar_name), 'rb'))
     y_solar = pickle.load(open('y%s.txt' % (solar_name), 'rb'))
     capacity_list = pickle.load(open('capacity_list_%s.txt' % (solar_name), 'rb'))
 
-    x,y,energy_list,angle_list,power_list,potential_power_list,speed_list,velocity_list,gen_energy_list,cost_list,state = load_pickles_basic(name) = load_pickles_basic(name)
+    x,y,energy_list,angle_list,power_list,potential_power_list,speed_list,velocity_list,gen_energy_list,cost_list,state = load_pickles_basic(name)
 
     ordered_cap = []
 
@@ -269,11 +269,11 @@ def load_graphs_capacity(name,solar_name,gen_size,cutoff=False):
     if cutoff:
         cost_cutoff_graph(cost_list,cutoff,x,y)
 
-def load_graphs_basic(name):
+def load_graphs_basic(name,pickle_folder):
     """graphs several basic info graphs (energy,power,speed,velocity,velocity/speed,angle)
     Inputs: name: string that was used to label the files when loading them
     """
-    x,y,energy_list,angle_list,power_list,potential_power_list,speed_list,velocity_list,gen_energy_list,cost_list,state = load_pickles_basic(name) = load_pickles_basic(name)
+    x,y,energy_list,angle_list,power_list,potential_power_list,speed_list,velocity_list,gen_energy_list,cost_list,state = load_pickles_basic(name,pickle_folder)
 
     energy_graph(energy_list,x,y) #graphs annual energy of a turbine
     power_graph(power_list,x,y) #graphs average power collected by a turbine
@@ -282,8 +282,8 @@ def load_graphs_basic(name):
     speed_proportion_graph(velocity_list, speed_list,x,y) #graphs velocity divided by speed
     power_proportion_graph(power_list, potential_power_list,x,y) #graphs power divided by total possible power proportion
 
-def load_graphs_state_basic(nsmae,state_name):
-    x,y,energy_list,angle_list,power_list,potential_power_list,speed_list,velocity_list,gen_energy_list,cost_list,state = load_pickles_basic(name)
+def load_graphs_state_basic(nsmae,pickle_folder,state_name):
+    x,y,energy_list,angle_list,power_list,potential_power_list,speed_list,velocity_list,gen_energy_list,cost_list,state = load_pickles_basic(name,pickle_folder)
 
     #converts the list of stings into lists of floats
     x = np.asarray(x, dtype=np.float64, order='C')
@@ -321,10 +321,11 @@ def load_graphs_state_basic(nsmae,state_name):
 if __name__ == '__main__':
     name = 'paralell test'
     state = 'California'
-    load_graphs_state_basic(name,state)
+    pickle_folder = '/media/sophie/Rapid/AccelerateWind/data'
+    load_graphs_state_basic(name,pickle_folder,state)
 
     # name = 'solar_data' #needs to be small data
     # solar_name = 'solar' #don't change
     # gen_size = '5'
     # cutoff = False
-    # load_graphs_capacity(name,solar_name,gen_size,cutoff)
+    # load_graphs_capacity(name,pickle_folder,solar_name,gen_size,cutoff)
