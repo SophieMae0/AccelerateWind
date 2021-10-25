@@ -49,7 +49,7 @@ def basic_calc(folder,file,file_count):
 
     return [coord[0],coord[1],energy,angle,power,potential_power,speed,velocity,gen_energy,cost,state]
 
-def dump_pickles_basic(folder,name,width,num_angles,gen_size,fly_size,perp=False,vel_factor=1):
+def dump_pickles_basic(folder,pickle_folder,name,width,num_angles,gen_size,fly_size,perp=False,vel_factor=1):
     """pickles flywheel and generator annual energy lists
     Inputs: folder: sting name of the folder the data is in
     name: string that was used to label the files when loading them
@@ -75,7 +75,6 @@ def dump_pickles_basic(folder,name,width,num_angles,gen_size,fly_size,perp=False
         #where n is the number of cpus on the computer running the program
     #iterates through basic_calc asynchronously, with starmap infrastructure
     results = pool.starmap_async(basic_calc,[(folder,file,file_count) for file in glob.glob('*')]).get()
-    print(results)
 
     pool.close()
     pool.join() #joins seperate processes, makes sure above part is finsihed before moving on
@@ -95,7 +94,7 @@ def dump_pickles_basic(folder,name,width,num_angles,gen_size,fly_size,perp=False
     state_list = results_array[:,10]
 
     #redirecting to the file that saves generated data
-    os.chdir('/media/sophie/Rapid/AccelerateWind/data')
+    os.chdir(pickle_folder)
     #pickles data
     pickle.dump(x,open('x.txt_%s.txt' % (name), 'wb'))
     pickle.dump(y,open('y.txt_%s.txt'% (name), 'wb'))
@@ -120,6 +119,9 @@ if __name__ == '__main__':
     #small data set is fiveMinutes10
     #big data set is TestDataPred
 
+    #sting name of the folder the pickled data should be stored
+    pickle_folder = '/media/sophie/Rapid/AccelerateWind/data'
+
     #string that was used to label the files when loading them
     name = 'paralell test'
 
@@ -143,4 +145,7 @@ if __name__ == '__main__':
     #multiplied by the velocity (can be increased to mimic rooftop speeds)
     vel_factor = 1.5
 
-    dump_pickles_basic(folder,name,width,num_angles,gen_size,fly_size,perp,vel_factor)
+    dump_pickles_basic(folder,pickle_folder,name,width,num_angles,gen_size,fly_size,perp,vel_factor)
+
+#PERSONAL ACCESS TOKEN:
+#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
